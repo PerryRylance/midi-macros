@@ -1,14 +1,16 @@
 import { Event } from "@perry-rylance/midi";
 
-export type EventsOrCallable = Event[] | ((temp: string) => Event[]);
+export type EventsOrCallable<Args extends unknown[] = []> = Event[] | ((...args: Args) => Event[]);
 export type Interpolator = (start: number, end: number, progress: number) => number;
-export type Generator = (delta: number) => Event | Event[];
+export type Generator<
+  Args extends [delta: number, ...rest: unknown[]] = [delta: number]
+> = (...args: Args) => Event | Event[];
 
 export const lerp: Interpolator = (start, end, progress) => {
     return (end * progress) + (start * (1 - progress));
 }
 
-export const repeat = (input: EventsOrCallable, count: number = 2): Event[] =>
+export const repeat = (count: number, input: EventsOrCallable<[i: number]>): Event[] =>
 {
     const result = [];
 
@@ -18,7 +20,7 @@ export const repeat = (input: EventsOrCallable, count: number = 2): Event[] =>
     for(let i = 0; i < count; i++)
     {
         if(typeof input === "function")
-            result.push(...input(count));
+            result.push(...input(i));
         else
             result.push(...input);
     }
@@ -26,7 +28,8 @@ export const repeat = (input: EventsOrCallable, count: number = 2): Event[] =>
     return result;
 }
 
-export function partition(duration: number, parts: number, generator: Generator): Event[]
+// TODO: Support callback for t - so time can be non-linear
+export function partition(duration: number, parts: number, generator: Generator<[delta: number, index: number]>): Event[]
 {
     if(!Number.isInteger(duration) || !Number.isInteger(parts))
         throw new Error("Fractional duration or parts not supported");
@@ -44,9 +47,9 @@ export function partition(duration: number, parts: number, generator: Generator)
     for(let i = 0; i < parts; i++)
     {
         const delta = base + (i < remainder ? 1 : 0);
-        const generated = generator(delta);
+        const generated = generator(delta, i);
 
-        if(Array.isArray(generated))
+        if(Array.isArray(generated)) // TODO: Might not play well with fluent API, might need to check if instanceof Event instead
             result.push(...generated);
         else
             result.push(generated);
@@ -55,9 +58,23 @@ export function partition(duration: number, parts: number, generator: Generator)
     return result;
 }
 
-export function interpolate()
+// TODO: Add index folks probs going to want it for lookups
+/**
+ * Makes a partition of parts over duration using the generator supplied. Please note that the interpolant will always be non-zero. It is assumed that you have already set the initial conditions outside the call, or will do so on index zero.
+ * @param duration Number of ticks the interpolation should take place over
+ * @param parts Number of parts or steps the interpolation should be divided into
+ * @param generator Callback function taking the delta and interpolant and returning one or more events
+ * @returns 
+ */
+export function interpolate(duration: number, parts: number, generator: Generator<[delta: number, interpolant: number, index: number]>)
 {
+    let absolute = 0;
+    let index = 0;
 
+    return partition(duration, parts, (delta: number, index: number) => {
+        absolute += delta;
+        return generator(delta, absolute / duration, index);
+    });
 }
 
 export function ramp()

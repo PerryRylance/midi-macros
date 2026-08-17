@@ -2,6 +2,7 @@ import { expect } from "vitest";
 
 interface CustomMatchers<R = unknown> {
     toLooseEqual(expected: unknown): R;
+    toBeCloseTo(expected: number): R;
 }
 
 declare module "vitest" {
@@ -16,7 +17,15 @@ expect.extend({
         return {
             pass,
             message: () =>
-                `expected ${this.utils.printReceived(received)} ${pass ? "not " : ""}to loosely equal ${this.utils.printExpected(expected)}`
+                `expected ${this.utils.printReceived(received)} ${pass ? "not" : ""} to loosely equal ${this.utils.printExpected(expected)}`
+        };
+    },
+    toBeCloseTo(received, expected, epsilon = 0.0001) {
+        const pass = Math.abs(received - expected) < epsilon;
+
+        return {
+            pass,
+            message: () => `expected ${this.utils.printReceived(received)} ${pass ? "not" : ""} to be within ${epsilon} of ${this.utils.printExpected(expected)}`
         };
     }
 });

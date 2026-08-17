@@ -4,6 +4,17 @@ import { partition } from "../src/Macros";
 
 const getTotalDelta = (events: Event[]) => events.reduce((sum, { delta }) => sum + delta, 0);
 
+test("generator receives index", () => {
+
+    let expected = 0;
+
+    partition(1000, 10, (delta, index) => {
+        expect(index).toEqual(expected++);
+        return [];
+    })
+
+});
+
 test.each([7, 13, 101])("delta for %d parts sums to specified duration", (parts) => {
 
     const expected = 1000;

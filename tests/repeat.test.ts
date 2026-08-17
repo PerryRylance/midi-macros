@@ -9,7 +9,7 @@ const events = [
 
 test("repeats twice by default", () => {
 
-    const actual = repeat(events);
+    const actual = repeat(2, events);
 
     expect(actual).toHaveLength(4);
 
@@ -27,7 +27,7 @@ test("repeats twice by default", () => {
 
 test("repeats specified number of times", () => {
 
-    const actual = repeat(events, 3);
+    const actual = repeat(3, events);
 
     expect(actual).toHaveLength(6);
 
@@ -45,7 +45,7 @@ test("repeats specified number of times", () => {
 
 test("repeating array yields same event instances", () => {
 
-    const actual = repeat(events);
+    const actual = repeat(2, events);
 
     expect(actual[0]).toBe(actual[2]);
     expect(actual[1]).toBe(actual[3]);
@@ -54,10 +54,10 @@ test("repeating array yields same event instances", () => {
 
 test("repeating with callback yields different instances", () => {
 
-    const actual = repeat(() => [
+    const actual = repeat(2, () => [
         new NoteOnEvent().key(60),
         new NoteOffEvent().delta(120).key(60)
-    ], 2);
+    ]);
 
     expect(actual[0]).not.toBe(actual[2]);
     expect(actual[1]).not.toBe(actual[3]);
@@ -66,6 +66,6 @@ test("repeating with callback yields different instances", () => {
 
 test("throws if fractional count supplied", () => {
 
-    expect(() => repeat(events, 1.5)).toThrow();
+    expect(() => repeat(1.5, events)).toThrow();
 
 });
