@@ -1,6 +1,8 @@
-import { Event, NoteOffEvent, NoteOnEvent } from "@perry-rylance/midi";
+import { Event, NoteOffEvent, NoteOnEvent, TextEvent } from "@perry-rylance/midi";
 import { expect, test } from "vitest";
 import { partition } from "../src/Macros";
+import InvalidNumberOfPartsError from "../src/errors/InvalidNumberOfPartsError";
+import UnexpectedSumDeltaError from "../src/errors/UnexpectedSumDeltaError";
 
 const getTotalDelta = (events: Event[]) => events.reduce((sum, { delta }) => sum + delta, 0);
 
@@ -10,8 +12,8 @@ test("generator receives index", () => {
 
     partition(1000, 10, (delta, index) => {
         expect(index).toEqual(expected++);
-        return [];
-    })
+        return new TextEvent(delta);
+    });
 
 });
 
@@ -44,6 +46,19 @@ test("generator can yield multiple events", () => {
 
 test("throws if parts is greater than duration", () => {
 
-    expect(() => partition(100, 101, () => [])).toThrow();
+    expect(() => partition(100, 101, () => [])).toThrow(InvalidNumberOfPartsError);
+
+});
+
+
+test("throws if delta not respected generating single event", () => {
+
+    expect(() => partition(1, 1, () => new NoteOnEvent)).toThrow(UnexpectedSumDeltaError);
+
+});
+
+test("throws if delta not respected generating multiple events", () => {
+
+    expect(() => partition(10, 10, () => new NoteOnEvent(50))).toThrow(UnexpectedSumDeltaError);
 
 });
