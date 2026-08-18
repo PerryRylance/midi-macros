@@ -1,6 +1,6 @@
 import { NoteOffEvent, NoteOnEvent } from "@perry-rylance/midi";
 import { expect, test } from "vitest";
-import { parallel } from "../src/macros";
+import parallel from "../src/macros/parallel";
 
 test("merges two lines of events sorted by absolute time", () => {
 

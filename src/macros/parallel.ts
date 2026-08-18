@@ -6,7 +6,7 @@ import TrackCollection from "@perry-rylance/midi/dist/TrackCollection";
  * @param lines Each line should be an array of events
  * @returns The combined lines as a flat array of events
  */
-export function parallel(lines: Event[][]): Event[]
+export default function parallel(lines: Event[][]): Event[]
 {
     const tracks = new TrackCollection(...lines.map(events => new Track().events(events)));
 

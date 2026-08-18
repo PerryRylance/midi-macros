@@ -1,5 +1,5 @@
-import type { Generator } from "./types";
-import { interpolate } from "./interpolate";
+import type { Generator } from "../types";
+import interpolate from "./interpolate";
 
 /**
  * Cycle a wave function over a duration, useful for effects like tremolo and vibrato
@@ -10,7 +10,7 @@ import { interpolate } from "./interpolate";
  * @param wave The wave function, defaults to sine
  * @returns The generated events
  */
-export function cycle(duration: number, parts: number, period: number, generator: Generator<[delta: number, value: number]>, wave: (angle: number) => number = Math.sin)
+export default function cycle(duration: number, parts: number, period: number, generator: Generator<[delta: number, value: number]>, wave: (angle: number) => number = Math.sin)
 {
     return interpolate(duration, parts, (delta, interpolant) => generator(delta, wave(interpolant * (duration / period) * 2 * Math.PI)));
 }

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { ramp } from "../src/macros";
+import ramp from "../src/macros/ramp";
 import { TextEvent } from "@perry-rylance/midi";
 
 test("interpolates linearly from start to end value by default", () => {

@@ -1,6 +1,6 @@
 import { Event, NoteOffEvent, NoteOnEvent, TextEvent } from "@perry-rylance/midi";
 import { expect, test } from "vitest";
-import { partition } from "../src/macros";
+import partition from "../src/macros/partition";
 import InvalidNumberOfPartsError from "../src/errors/InvalidNumberOfPartsError";
 import UnexpectedSumDeltaError from "../src/errors/UnexpectedSumDeltaError";
 

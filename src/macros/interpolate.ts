@@ -1,6 +1,6 @@
 import type { Event } from "@perry-rylance/midi";
-import type { Generator } from "./types";
-import { partition } from "./partition";
+import type { Generator } from "../types";
+import partition from "./partition";
 
 /**
  * Makes a partition of parts over duration using the generator supplied. Please note that the interpolant will always be non-zero. It is assumed that you have already set the initial conditions outside the call, or will do so on index zero.
@@ -9,7 +9,7 @@ import { partition } from "./partition";
  * @param generator Callback function taking the delta and interpolant and returning one or more events
  * @returns The generated events
  */
-export function interpolate(duration: number, parts: number, generator: Generator<[delta: number, interpolant: number, index: number]>): Event[]
+export default function interpolate(duration: number, parts: number, generator: Generator<[delta: number, interpolant: number, index: number]>): Event[]
 {
     let absolute = 0;
 

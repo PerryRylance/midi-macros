@@ -1,7 +1,7 @@
 import type { Event } from "@perry-rylance/midi";
-import type { Generator, Interpolator } from "./types";
-import { lerp } from "./lerp";
-import { interpolate } from "./interpolate";
+import type { Generator, Interpolator } from "../types";
+import lerp from "../interpolators/lerp";
+import interpolate from "./interpolate";
 
 /**
  * Convenience function for making a linear ramp from one value to another
@@ -13,7 +13,7 @@ import { interpolate } from "./interpolate";
  * @param ease Optinal easing function, defaults to linear
  * @returns
  */
-export function ramp(duration: number, parts: number, from: number, to: number, generator: Generator<[delta: number, value: number, index: number]>, ease: Interpolator = lerp): Event[]
+export default function ramp(duration: number, parts: number, from: number, to: number, generator: Generator<[delta: number, value: number, index: number]>, ease: Interpolator = lerp): Event[]
 {
     return interpolate(duration, parts, (delta, interpolant, index) => generator(delta, ease(from, to, interpolant), index));
 }

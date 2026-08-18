@@ -1,6 +1,6 @@
 import { NoteOffEvent, NoteOnEvent } from "@perry-rylance/midi";
 import { expect, test } from "vitest";
-import { repeat } from "../src/macros";
+import repeat from "../src/macros/repeat";
 
 const events = [
     new NoteOnEvent().key(60),

@@ -1,5 +1,5 @@
 import type { Event } from "@perry-rylance/midi";
-import type { EventsOrCallable } from "./types";
+import type { EventsOrCallable } from "../types";
 
 /**
  * Repeats the input count number of times
@@ -7,7 +7,7 @@ import type { EventsOrCallable } from "./types";
  * @param input An array of events or a callback that receives the repeat index and returns an array of events
  * @returns The repeated events
  */
-export const repeat = (count: number, input: EventsOrCallable<[i: number]>): Event[] =>
+const repeat = (count: number, input: EventsOrCallable<[i: number]>): Event[] =>
 {
     const result = [];
 
@@ -24,3 +24,5 @@ export const repeat = (count: number, input: EventsOrCallable<[i: number]>): Eve
 
     return result;
 }
+
+export default repeat;

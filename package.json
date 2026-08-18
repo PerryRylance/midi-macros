@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Collection of functions to assist with composing MIDI from scratch with @perry-rylance/midi",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "dev": "vitest",
     "test": "tsc && vitest run"

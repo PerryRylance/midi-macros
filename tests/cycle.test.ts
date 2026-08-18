@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { cycle } from "../src/macros";
+import cycle from "../src/macros/cycle";
 import { TextEvent } from "@perry-rylance/midi";
 
 test("completes one full sine revolution when duration equals period", () => {

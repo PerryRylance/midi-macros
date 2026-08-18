@@ -1,7 +1,7 @@
 import type { Event } from "@perry-rylance/midi";
 import InvalidNumberOfPartsError from "../errors/InvalidNumberOfPartsError";
 import UnexpectedSumDeltaError from "../errors/UnexpectedSumDeltaError";
-import type { Generator } from "./types";
+import type { Generator } from "../types";
 
 // TODO: Support callback for t - so time can be non-linear
 /**
@@ -11,7 +11,7 @@ import type { Generator } from "./types";
  * @param generator Callback function taking the delta and interpolant and returning one or more events
  * @returns The generated events
  */
-export function partition(duration: number, parts: number, generator: Generator<[delta: number, index: number]>): Event[]
+export default function partition(duration: number, parts: number, generator: Generator<[delta: number, index: number]>): Event[]
 {
     if(!Number.isInteger(duration) || !Number.isInteger(parts))
         throw new InvalidNumberOfPartsError("Fractional duration or parts not supported");
