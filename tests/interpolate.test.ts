@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { interpolate } from "../src/Macros";
+import { interpolate } from "../src/macros";
 import { TextEvent } from "@perry-rylance/midi";
 
 test("interpolant as expected", () => {

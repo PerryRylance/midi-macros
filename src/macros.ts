@@ -1,6 +1,7 @@
-import { Event } from "@perry-rylance/midi";
+import { Event, Track } from "@perry-rylance/midi";
 import InvalidNumberOfPartsError from "./errors/InvalidNumberOfPartsError";
 import UnexpectedSumDeltaError from "./errors/UnexpectedSumDeltaError";
+import TrackCollection from "@perry-rylance/midi/dist/TrackCollection";
 
 export type EventsOrCallable<Args extends unknown[] = []> = Event[] | ((...args: Args) => Event[]);
 export type Interpolator = (start: number, end: number, progress: number) => number;
@@ -12,6 +13,12 @@ export const lerp: Interpolator = (start, end, progress) => {
     return (end * progress) + (start * (1 - progress));
 }
 
+/**
+ * Repeats the input count number of times
+ * @param count The number of repeats, in musical terms. Zero will return an empty array, one will return the same events, two will return two repeats
+ * @param input An array of events or a callback that receives the repeat index and returns an array of events
+ * @returns The repeated events
+ */
 export const repeat = (count: number, input: EventsOrCallable<[i: number]>): Event[] =>
 {
     const result = [];
@@ -86,10 +93,9 @@ export function partition(duration: number, parts: number, generator: Generator<
  * @param generator Callback function taking the delta and interpolant and returning one or more events
  * @returns The generated events
  */
-export function interpolate(duration: number, parts: number, generator: Generator<[delta: number, interpolant: number, index: number]>)
+export function interpolate(duration: number, parts: number, generator: Generator<[delta: number, interpolant: number, index: number]>): Event[]
 {
     let absolute = 0;
-    let index = 0;
 
     return partition(duration, parts, (delta: number, index: number) => {
         absolute += delta;
@@ -97,59 +103,48 @@ export function interpolate(duration: number, parts: number, generator: Generato
     });
 }
 
-export function ramp()
+/**
+ * Convenience function for making a linear ramp from one value to another
+ * @param duration Number of ticks the interpolation should take place over
+ * @param parts Number of parts or steps the interpolation should be divided into
+ * @param from Starting value
+ * @param to Ending value
+ * @param generator Callback function taking the delta and interpolated value, and returning one or more events
+ * @param ease Optinal easing function, defaults to linear
+ * @returns 
+ */
+export function ramp(duration: number, parts: number, from: number, to: number, generator: Generator<[delta: number, value: number, index: number]>, ease: Interpolator = lerp): Event[]
 {
+    return interpolate(duration, parts, (delta, interpolant, index) => generator(delta, ease(from, to, interpolant), index));
 }
 
-export function vibrato()
+/**
+ * Cycle a wave function over a duration, useful for effects like tremolo and vibrato
+ * @param duration Time over which the cycles take place
+ * @param parts Granularity of the cycle, number of parts to break duration up into
+ * @param period The number of ticks to complete a full 360° revolution
+ * @param generator Callback that receives the event delta and the output from the wave function
+ * @param wave The wave function, defaults to sine
+ * @returns The generated events
+ */
+export function cycle(duration: number, parts: number, period: number, generator: Generator<[delta: number, value: number]>, wave: (angle: number) => number = Math.sin)
 {
-
+    return interpolate(duration, parts, (delta, interpolant) => generator(delta, wave(interpolant * (duration / period) * 2 * Math.PI)));
 }
 
-export function tremolo()
+/**
+ * Takes multiple lines of events and turns them into a single line, useful for things like syncopation and claves
+ * @param lines Each line should be an array of events
+ * @returns The combined lines as a flat array of events
+ */
+export function parallel(lines: Event[][]): Event[]
 {
+    const tracks = new TrackCollection(...lines.map(events => new Track().events(events)));
 
+    tracks.flatten({ appendEndOfTrackEvent: false });
+
+    if(tracks.length !== 1)
+        throw new Error();
+
+    return tracks[0]!.events;
 }
-
-export function parallel(lines: Event[][])
-{
-
-}
-
-/*export default class Macros
-{
-    constructor(private readonly ppqn: number) {}
-
-    repeat(events: Event[], count: number = 2): Event[]
-    {
-        const result = [];
-
-        for(let i = 0; i < count; i++)
-            result.push(...events);
-
-        return result;
-    }
-
-    ramp(generator: (delta: number, value: number) => Event, start: number, end: number, duration: number, steps?: number): Event[]
-    {
-        const result: Event[] = [];
-
-        if(!steps)
-            steps = Math.round(duration / (this.ppqn / 64));
-
-        // TODO: Handle drift / floating point accumulation
-        const delta = Math.round(duration / steps);
-        
-        for(let i = 0; i < steps; i++)
-        {
-            const interpolation = i / (steps - 1);
-            const value = (end * interpolation) - (start * (1 - interpolation));
-            const event = generator(delta, value);
-
-            result.push(event);
-        }
-
-        return result;
-    }
-}
-*/
