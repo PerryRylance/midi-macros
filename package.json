@@ -24,10 +24,11 @@
   },
   "homepage": "https://github.com/PerryRylance/midi-macros#readme",
   "devDependencies": {
+    "@types/node": "^22.20.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@perry-rylance/midi": "^1.2.0"
+    "@perry-rylance/midi": "^1.2.1"
   }
 }
