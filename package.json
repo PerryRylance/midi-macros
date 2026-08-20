@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "vitest",
-    "test": "tsc && vitest run"
+    "test": "tsc && vitest run",
+    "examples": "npx tsx examples/generate.ts"
   },
   "repository": {
     "type": "git",

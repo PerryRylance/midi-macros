@@ -3,10 +3,40 @@ import { Buffer } from "node:buffer";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import cycle from "../src/macros/cycle";
+import partition from "../src/macros/partition";
+import parallel from "../src/macros/parallel";
 
 const ppqn = 96;
 
 const generators: Record<string, () => Event[]> = {
+    major: () => {
+        const ascending = [0, 2, 4, 5, 7, 9, 11, 12];
+        const descending = [...ascending].reverse();
+        const root = 60;
+
+        return [...ascending, ...descending].flatMap(semitone => [
+            new NoteOnEvent().key(root + semitone),
+            new NoteOffEvent().delta(ppqn).key(root + semitone)
+        ]);
+    },
+    /*contrary: () => {
+        const ascending = [0, 2, 4, 5, 7, 9, 11, 12];
+        const descending = [...ascending].reverse();
+        const root = 60;
+
+        const right = [...ascending, ...descending];
+        const left = [...descending, ...ascending];
+
+        // const scale = (semitone: number, left: boolean) => [
+        //     new NoteOnEvent().key(root + semitone * (left ? -1 : 1)),
+        //     new NoteOffEvent().delta(ppqn).key(root + semitone * (left ? -1 : 1))
+        // ];
+
+        // return parallel([
+        //     [...ascending, ...descending].flatMap(semitone => scale(semitone, true)),
+        //     [...ascending, ...descending].flatMap(semitone => scale(semitone, false))
+        // ]);
+    },*/
     tremolo: () => {
         const beats = 4;
         const type = ControllerType.EXPRESSION_COARSE2;
