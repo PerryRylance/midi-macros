@@ -5,6 +5,9 @@ This library provides a set of convenience functions for generating arrays of MI
 
 ## Macros
 
+### `channel`
+Takes an array of events or a callback that generates events, everything wrapped within the call will be forced onto the specified channel.
+
 ### `repeat`
 Takes a count and an array of events or callback that generates events, returns the events repeated.
 
