@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vitest",
     "test": "tsc && vitest run",
-    "examples": "npx tsx examples/generate.ts"
+    "examples": "npx tsx examples/generate.ts && npx vite --config examples/vite.config.mts"
   },
   "repository": {
     "type": "git",
@@ -26,7 +26,9 @@
   "homepage": "https://github.com/PerryRylance/midi-macros#readme",
   "devDependencies": {
     "@types/node": "^22.20.1",
+    "spessasynth_lib": "^4.3.14",
     "typescript": "^5.9.3",
+    "vite": "^8.2.2",
     "vitest": "^4.1.10"
   },
   "dependencies": {

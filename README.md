@@ -37,3 +37,9 @@ Optionally takes an `ease` function, which defaults to linear interpolation.
 The same as `interpolate`, but takes a wave period. The generator receives a delta, and a value. Optionally, a wave function can be passed in. This defaults to `Math.sin`.
 
 This macro cycles over the duration with the specified period, the wave function receives a radian angle which completes one revolution every `period` ticks.
+
+## Examples
+
+See the `examples/generate.ts` for usage examples.
+
+If you want to hear them, you can run `npm run examples`, 
