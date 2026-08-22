@@ -10,7 +10,10 @@ export function isDefaultDependency(name: string): boolean {
 
 export function bootWebContainer(onOutput?: (chunk: string) => void): Promise<WebContainer> {
     if (!instance) {
-        instance = WebContainer.boot().then(async container => {
+        instance = WebContainer.boot({ workdirName: "workspace" }).then(async container => {
+            // TEMPORARY: dump the real workdir for LSP debugging.
+            console.log("[lsp] container.workdir =", container.workdir);
+
             await container.mount({
                 "package.json": {
                     file: {

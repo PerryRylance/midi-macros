@@ -42,8 +42,9 @@ I believe Monaco will provide these, so the tests should be fairly minimal.
 
 Please get Monaco into the main window with these features ready to go.
 
-- The editor must have a single TS window, no file tabs, no file explorer
-- The code in the editor must export a single `File` (from `@perry-rylance/midi`), and show an error if no default export is present
+- The editor must have a single TS window, no file tabs, no file explorer, nothing but the code window
+- The editor must open with the contents of `default.program.ts` in the code window
+- The code in the editor must export a single `File` (from `@perry-rylance/midi`), and show an error if no default export is present (this could happen at a later stage when the user presses play, potentially)
 
 ### Side bar
 Please build out the side bar as described above, we need a `<select>` with a list of sound fonts. Right now just have a single font, the one in `examples` seems good.
