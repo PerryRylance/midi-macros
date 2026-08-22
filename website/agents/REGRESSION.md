@@ -501,6 +501,35 @@ the widget is visible. `e2e/ide.spec.ts`'s completion test presses `Escape`
 to dismiss before every retry attempt, or the retry loop silently keeps
 "succeeding" at re-showing the same stale, tsserver-less result forever.
 
+## Follow-up feature: signature help (argument/overload hints) inside a call's parentheses
+
+**Status:** RESOLVED. Worked correctly on the first try (no repeat of the
+completion widget's stale-result trap, since the e2e test dismisses with
+Escape before every retry from the start).
+
+Same pattern again: `src/tsServerSignatureHelp.ts` is a pure module that
+turns tsserver's `signatureHelp` response into Monaco's `SignatureHelp`
+shape. Ground-truthed the real response shape live before writing any code
+(by now a standing practice for every new tsserver command touched in this
+file, given how many past bugs came from assumed-vs-real shape mismatches) -
+confirmed `documentation`/`displayParts` on `SignatureHelpItem`/
+`SignatureHelpParameter` are *always* `SymbolDisplayPart[]` arrays here
+(unlike `quickinfo`'s `documentation`, this one has no plain-string variant
+in the protocol), so the flattening helper is simpler than the hover one.
+
+The only non-trivial part: Monaco wants each parameter's `label` as a
+`[start, end]` **byte-offset range into the signature's own overall label
+string** (so it can highlight the active parameter), not a separate string.
+`buildSignature()` builds the full label by concatenating
+`prefixDisplayParts + parameters.join(separatorDisplayParts) + suffixDisplayParts`
+exactly as tsserver intends them displayed, tracking each parameter's
+`[start, end]` as it appends. `mm-editor.ts` registers a
+`SignatureHelpProvider` with `signatureHelpTriggerCharacters: ["(", ","]`
+and `signatureHelpRetriggerCharacters: [")"]`, wired the same way as
+completion (fresh `open` sent first, since this also fires immediately on
+typing `(`/`,` with no debounce - same reasoning as the completion fix
+above).
+
 ## New problem found during verification: cross-test WebContainer session sharing breaks tsserver
 
 **Status:** Open, not yet fixed.

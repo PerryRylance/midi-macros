@@ -14,6 +14,7 @@ import { createSentMessageTracker } from "../sentMessageTracker";
 import { toMonacoMarkers, type TsServerDiagnosticEventBody } from "../tsServerDiagnostics";
 import { toHoverContent, type TsServerQuickInfo } from "../tsServerHover";
 import { toCompletionItems, type TsServerCompletionInfo } from "../tsServerCompletions";
+import { toSignatureHelp, type TsServerSignatureHelpItems } from "../tsServerSignatureHelp";
 import { hasDefaultExport } from "../defaultExport";
 
 // The worker scripts actually live at "dist/workers/*.js" (see
@@ -94,6 +95,12 @@ export class MmEditorElement extends HTMLElement {
         monaco.languages.registerCompletionItemProvider("typescript", {
             triggerCharacters: [".", "\"", "'", "`", "/", "@", "<", "#"],
             provideCompletionItems: (model, position) => this.#provideCompletionItems(model, position)
+        });
+
+        monaco.languages.registerSignatureHelpProvider("typescript", {
+            signatureHelpTriggerCharacters: ["(", ","],
+            signatureHelpRetriggerCharacters: [")"],
+            provideSignatureHelp: (model, position) => this.#provideSignatureHelp(model, position)
         });
     }
 
@@ -269,6 +276,40 @@ export class MmEditorElement extends HTMLElement {
         } catch {
             // tsserver rejects when there's genuinely nothing to complete
             // (e.g. inside a string with no matching paths) - not a real error.
+            return undefined;
+        }
+    }
+
+    async #provideSignatureHelp(
+        model: monaco.editor.ITextModel,
+        position: monaco.Position
+    ): Promise<monaco.languages.SignatureHelpResult | undefined> {
+        const client = this.#tsServerClient;
+
+        if (!client || model.uri.toString() !== this.#model.uri.toString()) return undefined;
+
+        try {
+            // Same reasoning as completion above: this fires immediately on
+            // typing "(" / "," with no debounce, so send the latest content
+            // first to guarantee tsserver sees it before answering.
+            void client.sendCommand("open", {
+                file: WORKDIR_FILE_PATH,
+                fileContent: model.getValue(),
+                scriptKindName: "TS",
+                projectRootPath: WORKDIR_ROOT_PATH
+            });
+
+            const info = await client.sendRequest<TsServerSignatureHelpItems>("signatureHelp", {
+                file: WORKDIR_FILE_PATH,
+                line: position.lineNumber,
+                offset: position.column,
+                projectRootPath: WORKDIR_ROOT_PATH
+            });
+
+            return { value: toSignatureHelp(info), dispose() {} };
+        } catch {
+            // tsserver rejects when the caret isn't inside a call/argument
+            // list at all - not a real error.
             return undefined;
         }
     }

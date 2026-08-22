@@ -122,3 +122,24 @@ test("shows member auto-complete after typing a dot", async ({ page }) => {
         await expect(suggestions).toContainText("tracks", { timeout: 2_000 });
     }).toPass({ timeout: 60_000 });
 });
+
+test("shows argument/overload hints inside a call's parentheses", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    // Ends with an open paren deliberately - Monaco auto-closes it, leaving
+    // the caret right where we need it: inside the argument list.
+    await replaceEditorContent(page, 'import { File } from "@perry-rylance/midi";\n\nconst file = new File().tracks(');
+
+    const hints = page.locator(".parameter-hints-widget");
+
+    // Same "fires once, doesn't retry itself" situation as hover/completion
+    // above - "Trigger Parameter Hints" re-asks at the current caret position.
+    await expect(async () => {
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Control+Shift+Space");
+        await expect(hints).toContainText("tracks(", { timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+
+    await expect(hints).toContainText("value");
+});
