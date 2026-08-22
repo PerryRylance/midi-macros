@@ -21,7 +21,7 @@ This project is a MIDI library that gives the developer macros for musical compo
 What we are buildling here is inspired by Strudel's web interface, we need
 - A single file code editor (Monaco)
 - Playback controls, play, stop and pause is sufficient, seek is not needed at this point
-- An export feature that can export either the code or the generated MIDI
+- An export feature that can export either a zip of the TypeScript code and package.json, or the generated MIDI
 - A tabbed sidebar which will have
     - A welcome tab for newcomers
     - A library tab with all the users saved projects, where they can load them
@@ -79,5 +79,4 @@ A secondary goal is highlighting which macros from this library are being used, 
 ### Deployment
 This project will be deployed at `midi.macros.website` via CloudFlare pages, please do the preparation.
 
-## Future
-- CodePen style package management (Import Maps + Type Ingestion)
+Ideally our CI / CD script should be able to detect if anything has changed in `website` since the last deploy and only deploy if changes are detected.

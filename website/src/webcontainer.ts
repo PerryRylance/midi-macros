@@ -31,16 +31,12 @@ export interface InstallResult {
     output: string;
 }
 
-export async function installPackage(
+async function runNpmCommand(
     container: WebContainer,
-    name: string,
+    args: string[],
     onOutput?: (chunk: string) => void
 ): Promise<InstallResult> {
-    if (!isValidPackageName(name)) {
-        throw new Error(`"${name}" is not a valid npm package name.`);
-    }
-
-    const process = await container.spawn("npm", ["install", name]);
+    const process = await container.spawn("npm", args);
 
     let output = "";
     const reader = process.output.getReader();
@@ -57,4 +53,35 @@ export async function installPackage(
     const exitCode = await process.exit;
 
     return { exitCode, output };
+}
+
+export async function installPackage(
+    container: WebContainer,
+    name: string,
+    onOutput?: (chunk: string) => void
+): Promise<InstallResult> {
+    if (!isValidPackageName(name)) {
+        throw new Error(`"${name}" is not a valid npm package name.`);
+    }
+
+    return runNpmCommand(container, ["install", name], onOutput);
+}
+
+export async function uninstallPackage(
+    container: WebContainer,
+    name: string,
+    onOutput?: (chunk: string) => void
+): Promise<InstallResult> {
+    if (!isValidPackageName(name)) {
+        throw new Error(`"${name}" is not a valid npm package name.`);
+    }
+
+    return runNpmCommand(container, ["uninstall", name], onOutput);
+}
+
+export async function listInstalledPackages(container: WebContainer): Promise<string[]> {
+    const raw = await container.fs.readFile("package.json", "utf-8");
+    const manifest = JSON.parse(raw) as { dependencies?: Record<string, string> };
+
+    return Object.keys(manifest.dependencies ?? {}).sort();
 }

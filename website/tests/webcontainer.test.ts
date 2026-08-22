@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { installPackage, isValidPackageName } from "../src/webcontainer";
+import { installPackage, isValidPackageName, listInstalledPackages, uninstallPackage } from "../src/webcontainer";
 
 describe("isValidPackageName", () => {
     it("accepts a simple lowercase package name", () => {
@@ -100,5 +100,75 @@ describe("installPackage", () => {
 
         expect(onOutput.mock.calls).toEqual(chunks.map(chunk => [chunk]));
         expect(result.output).toBe("added 1 package");
+    });
+});
+
+describe("uninstallPackage", () => {
+    it("rejects invalid package names without spawning a process", async () => {
+        const spawn = vi.fn();
+        const container = { spawn } as any;
+
+        await expect(uninstallPackage(container, "; rm -rf /")).rejects.toThrow(/not a valid npm package name/);
+        expect(spawn).not.toHaveBeenCalled();
+    });
+
+    it("spawns npm uninstall and resolves with the exit code and collected output", async () => {
+        const spawn = vi.fn().mockResolvedValue({
+            output: new ReadableStream<string>({
+                start(controller) {
+                    controller.enqueue("removed 1 package");
+                    controller.close();
+                }
+            }),
+            exit: Promise.resolve(0)
+        });
+        const container = { spawn } as any;
+
+        const result = await uninstallPackage(container, "nanoid");
+
+        expect(spawn).toHaveBeenCalledWith("npm", ["uninstall", "nanoid"]);
+        expect(result.exitCode).toBe(0);
+        expect(result.output).toBe("removed 1 package");
+    });
+
+    it("streams output chunks to the onOutput callback as it arrives", async () => {
+        const spawn = vi.fn().mockResolvedValue({
+            output: new ReadableStream<string>({
+                start(controller) {
+                    controller.enqueue("removed 1 package");
+                    controller.close();
+                }
+            }),
+            exit: Promise.resolve(0)
+        });
+        const container = { spawn } as any;
+        const onOutput = vi.fn();
+
+        await uninstallPackage(container, "nanoid", onOutput);
+
+        expect(onOutput).toHaveBeenCalledWith("removed 1 package");
+    });
+});
+
+describe("listInstalledPackages", () => {
+    it("returns the dependency names from package.json, sorted", async () => {
+        const readFile = vi.fn().mockResolvedValue(JSON.stringify({
+            name: "sandbox",
+            private: true,
+            dependencies: { nanoid: "^5.0.0", "left-pad": "^1.3.0" }
+        }));
+        const container = { fs: { readFile } } as any;
+
+        const packages = await listInstalledPackages(container);
+
+        expect(readFile).toHaveBeenCalledWith("package.json", "utf-8");
+        expect(packages).toEqual(["left-pad", "nanoid"]);
+    });
+
+    it("returns an empty array when package.json has no dependencies", async () => {
+        const readFile = vi.fn().mockResolvedValue(JSON.stringify({ name: "sandbox", private: true }));
+        const container = { fs: { readFile } } as any;
+
+        expect(await listInstalledPackages(container)).toEqual([]);
     });
 });
