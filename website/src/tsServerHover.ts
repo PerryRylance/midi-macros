@@ -1,9 +1,15 @@
+export type TsServerSymbolDisplayParts = string | { text: string }[];
+
 export interface TsServerQuickInfo {
     start: { line: number; offset: number };
     end: { line: number; offset: number };
     displayString: string;
-    documentation?: { text: string }[];
-    tags?: { name: string; text?: { text: string }[] }[];
+    // tsserver's plain `quickinfo` command (as opposed to `quickinfo-full`)
+    // returns these as flattened strings, not SymbolDisplayPart arrays,
+    // unless `displayPartsForJSDoc` is requested - see TypeScript's own
+    // protocol.d.ts (`documentation: string | SymbolDisplayPart[]`).
+    documentation?: TsServerSymbolDisplayParts;
+    tags?: { name: string; text?: TsServerSymbolDisplayParts }[];
 }
 
 export interface HoverRange {
@@ -18,19 +24,22 @@ export interface HoverContent {
     contents: { value: string }[];
 }
 
-function joinParts(parts: { text: string }[] | undefined): string {
-    return (parts ?? []).map(part => part.text).join("");
+function flattenParts(parts: TsServerSymbolDisplayParts | undefined): string {
+    if (parts === undefined) return "";
+    if (typeof parts === "string") return parts;
+
+    return parts.map(part => part.text).join("");
 }
 
 export function toHoverContent(info: TsServerQuickInfo): HoverContent {
     const contents = [{ value: `\`\`\`typescript\n${info.displayString}\n\`\`\`` }];
 
-    const documentation = joinParts(info.documentation);
+    const documentation = flattenParts(info.documentation);
 
     if (documentation) contents.push({ value: documentation });
 
     for (const tag of info.tags ?? []) {
-        const tagText = joinParts(tag.text);
+        const tagText = flattenParts(tag.text);
 
         contents.push({ value: `*@${tag.name}*${tagText ? ` ${tagText}` : ""}` });
     }

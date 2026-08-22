@@ -72,8 +72,22 @@ test("shows a hover popup with type information for a regular (non-error) token"
 
     await expect(page.locator("#editor-status")).toHaveText("");
 
-    await editorRoot(page).locator(".view-line", { hasText: "const answer" }).getByText("answer").hover();
+    // A synthetic mouse `.hover()` doesn't reliably drive Monaco's own
+    // mouse-target tracking under Playwright - clicking to position the
+    // caret and triggering the "Show Hover" keybinding (Monaco's own
+    // keyboard-accessible equivalent) is the reliable way to invoke it here.
+    // Unlike diagnostics (pushed as events that naturally arrive once
+    // tsserver is ready), this command fires once at the moment it's
+    // pressed - if tsserver's connect/warm-up/open sequence hasn't finished
+    // yet, it resolves with nothing and nothing re-triggers it, so this
+    // retries the keybinding until content actually shows up.
+    const answerToken = editorRoot(page).locator(".view-line", { hasText: "const answer" }).getByText("answer");
+    const hover = page.locator(".monaco-hover");
 
-    await expect(page.locator(".monaco-hover")).toBeVisible({ timeout: 60_000 });
-    await expect(page.locator(".monaco-hover")).toContainText("answer");
+    await expect(async () => {
+        await answerToken.click();
+        await page.keyboard.press("Control+K");
+        await page.keyboard.press("Control+I");
+        await expect(hover).toContainText("answer", { timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
 });

@@ -30,8 +30,11 @@ const SUGGESTION_MARKER_OWNER = "tsserver-suggestion";
 // Must match the WebContainer's real workdir (set via `workdirName: "workspace"`
 // in webcontainer.ts) or tsserver can't resolve node_modules imports relative
 // to this file - it needs a real, on-disk-equivalent path, not just a URI.
-const WORKDIR_FILE_PATH = "/home/workspace/index.ts";
+const WORKDIR_ROOT_PATH = "/home/workspace";
+const WORKDIR_FILE_PATH = `${WORKDIR_ROOT_PATH}/index.ts`;
 const MODEL_URI = `file://${WORKDIR_FILE_PATH}`;
+// Never shown to the user - see the "warming up" comment in #connectTsServer.
+const WARMUP_FILE_PATH = `${WORKDIR_ROOT_PATH}/.warmup.ts`;
 
 const DEFAULT_SOURCE = `import { File } from "@perry-rylance/midi";
 
@@ -44,6 +47,15 @@ const NO_DEFAULT_EXPORT_MESSAGE = "No default export found. Expected a default e
 // on `geterr`), not per-keystroke - this avoids flooding it with a fresh
 // open+geterr pair on every single keystroke while typing.
 const DOCUMENT_SYNC_DEBOUNCE_MS = 300;
+
+// The very first `open` tsserver ever processes in a session doesn't produce
+// a response, even with `projectRootPath` set, so there's nothing to await -
+// this fixed delay is the only reliable way found to let it finish its
+// internal project setup before the real document's `open` arrives as
+// tsserver's *second* file (which behaves correctly). See the "warming up"
+// comment in #connectTsServer and agents/REGRESSION.md for how this was
+// diagnosed.
+const WARMUP_SETTLE_DELAY_MS = 2000;
 
 export class MmEditorElement extends HTMLElement {
     #model: monaco.editor.ITextModel;
@@ -123,6 +135,21 @@ export class MmEditorElement extends HTMLElement {
 
         this.#tsServerClient = client;
 
+        // tsserver never attaches a real project to the very first file
+        // opened in a session - confirmed empirically: `quickinfo` fails
+        // with "No Project" for whichever file is opened first regardless of
+        // name/content/projectRootPath, while the *second* file opened works
+        // correctly. Opening a disposable warm-up file first works around
+        // this so the user's actual document is never "file #1".
+        console.log("[lsp] warming up tsserver's project service...");
+        void client.sendCommand("open", {
+            file: WARMUP_FILE_PATH,
+            fileContent: "",
+            scriptKindName: "TS",
+            projectRootPath: WORKDIR_ROOT_PATH
+        });
+        await new Promise(resolve => setTimeout(resolve, WARMUP_SETTLE_DELAY_MS));
+
         console.log("[lsp] opening document...");
         this.#syncDocument();
     }
@@ -141,7 +168,19 @@ export class MmEditorElement extends HTMLElement {
         // tsserver treats `open` on an already-open file as a full content
         // replacement, so re-opening on every change avoids having to track
         // incremental edit ranges ourselves.
-        void client.sendCommand("open", { file: WORKDIR_FILE_PATH, fileContent: this.#model.getValue(), scriptKindName: "TS" });
+        //
+        // `projectRootPath` is required for tsserver to durably associate a
+        // real project with this file - without it, `open` still "succeeds"
+        // and `geterr` diagnostics still work (they use a lenient lookup),
+        // but any later request needing a project (e.g. `quickinfo` for
+        // hover) fails with "No Project", since the file is treated as a
+        // rootless, ad-hoc "dynamic" file with no durable project lifecycle.
+        void client.sendCommand("open", {
+            file: WORKDIR_FILE_PATH,
+            fileContent: this.#model.getValue(),
+            scriptKindName: "TS",
+            projectRootPath: WORKDIR_ROOT_PATH
+        });
         void client.sendCommand("geterr", { files: [WORKDIR_FILE_PATH], delay: 0 });
     }
 
@@ -157,10 +196,19 @@ export class MmEditorElement extends HTMLElement {
             const info = await client.sendRequest<TsServerQuickInfo>("quickinfo", {
                 file: WORKDIR_FILE_PATH,
                 line: position.lineNumber,
-                offset: position.column
+                offset: position.column,
+                projectRootPath: WORKDIR_ROOT_PATH
             });
 
-            return toHoverContent(info);
+            const { range, contents } = toHoverContent(info);
+
+            // Monaco's hover aggregation appears to require a real `Range`
+            // instance (not just a duck-typed object matching `IRange`) -
+            // a plain object was silently dropped with no content ever shown.
+            return {
+                contents,
+                range: new monaco.Range(range.startLineNumber, range.startColumn, range.endLineNumber, range.endColumn)
+            };
         } catch {
             // tsserver rejects with success: false ("No content available.")
             // for positions with nothing to show - not a real error.

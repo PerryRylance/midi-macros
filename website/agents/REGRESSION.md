@@ -396,12 +396,76 @@ test locator using a bare `.monaco-editor` selector will now match 2 elements
 instead of 1 - `e2e/ide.spec.ts` scopes to `.monaco-editor[data-uri]` to
 disambiguate the real editor root from it.
 
-**Not yet confirmed working under the Playwright e2e runner** - the hover
-e2e test hits the exact same symptom as the diagnostic test below (widget
-exists but content never populates within the automated run), which is the
-same pre-existing, already-documented gap between automated Playwright runs
-and live manual browser testing - not re-investigated further per the lead
-developer's steer not to keep chasing that discrepancy right now.
+**Update:** the remaining pieces (why hover showed nothing even once the
+widget/contribution existed) were tracked down and fixed - see the next
+section. The "not re-investigated further" note above turned out to be
+premature; the underlying cause was real and has been fixed.
+
+## Follow-up fix: hover on regular (non-error) tokens showed nothing at all
+
+**Status:** RESOLVED. Three distinct, independently-confirmed bugs, all now fixed.
+
+After the `editor.all.js` fix above made the hover *widget* exist, hovering
+any regular token (e.g. `let temp = "test"`) still showed nothing - no
+popup content, ever, even though error/warning marker hovers (a completely
+separate, Monaco-built-in code path) worked fine. Three separate root causes
+were found stacked on top of each other:
+
+1. **tsserver never attaches a real project to the very first file opened in
+   a session.** Confirmed empirically, repeatedly, in complete isolation:
+   `quickinfo` fails with `"Error processing request. No Project."` for
+   whichever file is opened first in a tsserver session - regardless of
+   filename, content, or whether `projectRootPath` is set - while the exact
+   same request for the *second* file opened succeeds immediately. This
+   isn't about timing/eviction (reproduces identically waiting 1s or 45s
+   before querying) and isn't about the specific file (`index.ts`, `a.ts`,
+   `b.ts` all show it as file #1, all work as file #2). **Fix:** `mm-editor.ts`
+   now opens a disposable warm-up file (`.warmup.ts`, empty content) before
+   ever opening the user's real document, so the real document is never
+   "file #1". The warm-up `open` itself never produces a response (even with
+   `projectRootPath` - same quirk extends to responses), so there's nothing
+   to `await`; a fixed `WARMUP_SETTLE_DELAY_MS` (2s) is used instead, based
+   on what reliably worked in repeated isolated testing.
+2. **`quickinfo` needs `projectRootPath` to get a *durable* project.**
+   Separately from (1), even as the *second* file, `open` without
+   `projectRootPath` still leaves the file as a rootless "dynamic" file -
+   `geterr` diagnostics work fine for such files (lenient project lookup,
+   `tryGetDefaultProjectForFile`), but `quickinfo` uses a strict lookup
+   (`ensureDefaultProjectForFile`) that throws `ThrowNoProject` for them.
+   Fix: `projectRootPath: WORKDIR_ROOT_PATH` is now passed on `open`.
+3. **`quickinfo`'s `documentation`/tag `text` fields are `string`, not
+   `SymbolDisplayPart[]`, by default.** Confirmed directly against
+   TypeScript's own `protocol.d.ts`: both are typed
+   `string | SymbolDisplayPart[]` - a plain string unless
+   `displayPartsForJSDoc` is explicitly requested (never done here). The
+   original `tsServerHover.ts` assumed the array shape unconditionally,
+   so `(parts ?? []).map(...)` threw `TypeError: "".map is not a function`
+   for `documentation: ""` - silently swallowed by `#provideHover`'s
+   catch-all (which exists to treat tsserver's legitimate "No content
+   available" rejection as a non-error), so it looked exactly like "no
+   hover content" from the outside. Fix: `flattenParts()` now handles both
+   the string and array shapes. Caught by temporarily logging the actual
+   caught error instead of swallowing it - worth remembering as a pattern
+   for any future "silently returns nothing" hover/completion bug here.
+4. **(Minor, fixed alongside the above) Monaco's hover aggregation silently
+   dropped a plain `{startLineNumber, ...}` object for `Hover.range`** - it
+   needs a real `monaco.Range` instance. `#provideHover` now wraps
+   `toHoverContent()`'s plain range object in `new monaco.Range(...)` before
+   returning it to Monaco. (This alone wasn't the root cause - bug 3 was
+   throwing before this code even ran - but it's a real, separate
+   requirement and is now handled correctly regardless.)
+
+**e2e test note:** unlike diagnostics (pushed as events that naturally
+arrive once tsserver catches up, however long that takes), a
+keyboard-triggered "Show Hover" command fires once at the moment it's
+pressed. If tsserver's connect/warm-up/open sequence hasn't finished yet, it
+resolves with nothing and nothing re-triggers it. `e2e/ide.spec.ts`'s hover
+test wraps the trigger-and-check in `expect(...).toPass(...)` to retry until
+content actually appears, rather than assuming a single attempt is enough.
+A synthetic mouse `.hover()` also proved unreliable for triggering Monaco's
+hover computation under Playwright (same conclusion reached earlier for the
+first hover e2e attempt) - the test uses click-to-position-caret +
+the `Control+K Control+I` "Show Hover" keybinding instead.
 
 ## New problem found during verification: cross-test WebContainer session sharing breaks tsserver
 
