@@ -15,7 +15,12 @@ import { toMonacoMarkers, type TsServerDiagnosticEventBody } from "../tsServerDi
 import { toHoverContent, type TsServerQuickInfo } from "../tsServerHover";
 import { hasDefaultExport } from "../defaultExport";
 
-buildWorkerDefinition("dist", new URL("", window.location.href).href, false);
+// The worker scripts actually live at "dist/workers/*.js" (see
+// public/dist/workers) - passing just "dist" here builds a URL one directory
+// short of the real file, which 404s and (since Vite's dev server falls back
+// to index.html for unmatched routes) gets executed as JS, throwing
+// "Unexpected token '<'" from the leading "<!doctype html>".
+buildWorkerDefinition("dist/workers", new URL("", window.location.href).href, false);
 
 const DEFAULT_EXPORT_MARKER_OWNER = "midi-macros-default-export";
 const SYNTAX_MARKER_OWNER = "tsserver-syntax";
