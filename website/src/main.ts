@@ -1,5 +1,5 @@
 import "@xterm/xterm/css/xterm.css";
-import { bootWebContainer, installPackage, listInstalledPackages, uninstallPackage } from "./webcontainer";
+import { bootWebContainer, DEFAULT_DEPENDENCIES, installPackage, isDefaultDependency, listInstalledPackages, uninstallPackage } from "./webcontainer";
 import { createTerminal } from "./terminal";
 
 const status = document.querySelector<HTMLParagraphElement>("#status")!;
@@ -10,7 +10,9 @@ const terminalContainer = document.querySelector<HTMLDivElement>("#terminal")!;
 const packageList = document.querySelector<HTMLUListElement>("#package-list")!;
 
 const terminal = createTerminal(terminalContainer);
-const container = await bootWebContainer();
+
+terminal.writeln(`$ npm install ${DEFAULT_DEPENDENCIES.join(" ")}`);
+const container = await bootWebContainer(chunk => terminal.write(chunk));
 
 function setBusy(busy: boolean): void {
     input.disabled = busy;
@@ -27,15 +29,19 @@ async function refreshPackageList(): Promise<void> {
     packageList.replaceChildren(...packages.map(name => {
         const item = document.createElement("li");
         const label = document.createElement("span");
-        const removeButton = document.createElement("button");
 
         label.textContent = name;
+        item.append(label);
 
-        removeButton.type = "button";
-        removeButton.textContent = "Remove";
-        removeButton.addEventListener("click", () => removePackage(name));
+        if (!isDefaultDependency(name)) {
+            const removeButton = document.createElement("button");
 
-        item.append(label, removeButton);
+            removeButton.type = "button";
+            removeButton.textContent = "Remove";
+            removeButton.addEventListener("click", () => removePackage(name));
+
+            item.append(removeButton);
+        }
 
         return item;
     }));

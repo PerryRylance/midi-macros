@@ -2,7 +2,13 @@ import { WebContainer } from "@webcontainer/api";
 
 let instance: Promise<WebContainer> | null = null;
 
-export function bootWebContainer(): Promise<WebContainer> {
+export const DEFAULT_DEPENDENCIES = ["@perry-rylance/midi", "@perry-rylance/midi-macros"] as const;
+
+export function isDefaultDependency(name: string): boolean {
+    return (DEFAULT_DEPENDENCIES as readonly string[]).includes(name);
+}
+
+export function bootWebContainer(onOutput?: (chunk: string) => void): Promise<WebContainer> {
     if (!instance) {
         instance = WebContainer.boot().then(async container => {
             await container.mount({
@@ -12,6 +18,8 @@ export function bootWebContainer(): Promise<WebContainer> {
                     }
                 }
             });
+
+            await runNpmCommand(container, ["install", ...DEFAULT_DEPENDENCIES], onOutput);
 
             return container;
         });

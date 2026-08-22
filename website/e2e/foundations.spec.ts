@@ -1,9 +1,11 @@
 import { test, expect } from "@playwright/test";
 
+const DEFAULT_DEPENDENCIES = ["@perry-rylance/midi", "@perry-rylance/midi-macros"];
+
 test("boots a WebContainer and installs an npm package", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 30_000 });
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
 
     await page.locator("#package-name").fill("nanoid");
     await page.locator("#install-button").click();
@@ -15,7 +17,7 @@ test("boots a WebContainer and installs an npm package", async ({ page }) => {
 test("shows an error for an invalid package name", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 30_000 });
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
 
     await page.locator("#package-name").fill("; rm -rf /");
     await page.locator("#install-button").click();
@@ -27,8 +29,8 @@ test("shows an error for an invalid package name", async ({ page }) => {
 test("lists an installed package and can remove it", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 30_000 });
-    await expect(page.locator("#package-list li")).toHaveCount(0);
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    await expect(page.locator("#package-list li")).toHaveCount(DEFAULT_DEPENDENCIES.length);
 
     await page.locator("#package-name").fill("nanoid");
     await page.locator("#install-button").click();
@@ -46,7 +48,7 @@ test("lists an installed package and can remove it", async ({ page }) => {
 test("disables remove buttons while the terminal is busy", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 30_000 });
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
 
     await page.locator("#package-name").fill("nanoid");
     await page.locator("#install-button").click();
@@ -61,4 +63,18 @@ test("disables remove buttons while the terminal is busy", async ({ page }) => {
     await expect(removeButton).toBeDisabled();
     await expect(page.locator("#status")).toHaveText("Installed left-pad.", { timeout: 60_000 });
     await expect(removeButton).toBeEnabled();
+});
+
+test("preinstalls the default dependencies without a remove button", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+
+    for (const name of DEFAULT_DEPENDENCIES) {
+        // "@perry-rylance/midi" is a text substring of "@perry-rylance/midi-macros", so match exactly.
+        const item = page.locator("#package-list li").filter({ hasText: new RegExp(`^${name}$`) });
+
+        await expect(item).toBeVisible();
+        await expect(item.getByRole("button", { name: "Remove" })).toHaveCount(0);
+    }
 });

@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { installPackage, isValidPackageName, listInstalledPackages, uninstallPackage } from "../src/webcontainer";
+import {
+    DEFAULT_DEPENDENCIES,
+    installPackage,
+    isDefaultDependency,
+    isValidPackageName,
+    listInstalledPackages,
+    uninstallPackage
+} from "../src/webcontainer";
 
 describe("isValidPackageName", () => {
     it("accepts a simple lowercase package name", () => {
@@ -170,5 +177,17 @@ describe("listInstalledPackages", () => {
         const container = { fs: { readFile } } as any;
 
         expect(await listInstalledPackages(container)).toEqual([]);
+    });
+});
+
+describe("isDefaultDependency", () => {
+    it("returns true for each of the default dependencies", () => {
+        for (const name of DEFAULT_DEPENDENCIES) {
+            expect(isDefaultDependency(name)).toBe(true);
+        }
+    });
+
+    it("returns false for any other package", () => {
+        expect(isDefaultDependency("nanoid")).toBe(false);
     });
 });
