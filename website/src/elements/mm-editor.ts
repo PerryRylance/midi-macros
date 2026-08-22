@@ -1,4 +1,9 @@
 import "monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution.js";
+// Side-effect import registering Monaco's built-in editor contributions
+// (hover, parameter hints, go-to-definition, autocomplete UI, etc.) -
+// `editor.api.js` alone only exposes the bare API surface with no UI
+// controllers wired up to invoke any of the providers we register below.
+import "monaco-editor/esm/vs/editor/editor.all.js";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
 import { buildWorkerDefinition } from "monaco-editor-workers";
 import { bootWebContainer } from "../webcontainer";
@@ -7,6 +12,7 @@ import { createTsServerClient, type TsServerClient, type TsServerEvent } from ".
 import { createEchoFilter } from "../echoFilter";
 import { createSentMessageTracker } from "../sentMessageTracker";
 import { toMonacoMarkers, type TsServerDiagnosticEventBody } from "../tsServerDiagnostics";
+import { toHoverContent, type TsServerQuickInfo } from "../tsServerHover";
 import { hasDefaultExport } from "../defaultExport";
 
 buildWorkerDefinition("dist", new URL("", window.location.href).href, false);
@@ -39,7 +45,6 @@ export class MmEditorElement extends HTMLElement {
     #status: HTMLParagraphElement;
     #host: HTMLDivElement;
     #tsServerClient: TsServerClient | undefined;
-    #seq = 0;
     #syncTimer: ReturnType<typeof setTimeout> | undefined;
 
     constructor() {
@@ -59,6 +64,10 @@ export class MmEditorElement extends HTMLElement {
         this.#model.onDidChangeContent(() => {
             this.#checkDefaultExport();
             this.#scheduleDocumentSync();
+        });
+
+        monaco.languages.registerHoverProvider("typescript", {
+            provideHover: (model, position) => this.#provideHover(model, position)
         });
     }
 
@@ -127,18 +136,31 @@ export class MmEditorElement extends HTMLElement {
         // tsserver treats `open` on an already-open file as a full content
         // replacement, so re-opening on every change avoids having to track
         // incremental edit ranges ourselves.
-        void client.sendCommand({
-            seq: this.#seq++,
-            type: "request",
-            command: "open",
-            arguments: { file: WORKDIR_FILE_PATH, fileContent: this.#model.getValue(), scriptKindName: "TS" }
-        });
-        void client.sendCommand({
-            seq: this.#seq++,
-            type: "request",
-            command: "geterr",
-            arguments: { files: [WORKDIR_FILE_PATH], delay: 0 }
-        });
+        void client.sendCommand("open", { file: WORKDIR_FILE_PATH, fileContent: this.#model.getValue(), scriptKindName: "TS" });
+        void client.sendCommand("geterr", { files: [WORKDIR_FILE_PATH], delay: 0 });
+    }
+
+    async #provideHover(
+        model: monaco.editor.ITextModel,
+        position: monaco.Position
+    ): Promise<monaco.languages.Hover | null> {
+        const client = this.#tsServerClient;
+
+        if (!client || model.uri.toString() !== this.#model.uri.toString()) return null;
+
+        try {
+            const info = await client.sendRequest<TsServerQuickInfo>("quickinfo", {
+                file: WORKDIR_FILE_PATH,
+                line: position.lineNumber,
+                offset: position.column
+            });
+
+            return toHoverContent(info);
+        } catch {
+            // tsserver rejects with success: false ("No content available.")
+            // for positions with nothing to show - not a real error.
+            return null;
+        }
     }
 
     #handleTsServerEvent(event: TsServerEvent): void {

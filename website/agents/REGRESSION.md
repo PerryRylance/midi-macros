@@ -364,6 +364,45 @@ content), and matches on a blank-line separator instead of requiring the
 literal `\r\n\r\n` bytes. Covered by unit tests using both a synthetic
 mangled fixture and a byte-for-byte real captured response.
 
+## Follow-up feature: hover popups, and why they never worked at all
+
+**Status:** RESOLVED. Root cause confirmed directly; unrelated to tsserver.
+
+Hover ("popups on any of the tokens") never worked, for any token, error or
+not - not a tsserver problem at all. `mm-editor.ts` only imported
+`monaco-editor/esm/vs/editor/editor.api.js`, which is Monaco's bare API
+surface. Monaco's ESM build ships its built-in editing features (hover,
+parameter hints, go-to-definition, the rename/autocomplete UI, etc.) as a
+separate side-effect import, `editor.all.js` - without it, no UI controller
+exists to ever invoke a registered `HoverProvider` in the first place,
+regardless of whether tsserver would have answered. Confirmed directly: before
+adding the import, `document.querySelectorAll(".monaco-hover")` found zero
+elements at all, even after directly invoking Monaco's own
+`editor.action.showHover` action via its JS API (bypassing mouse/keyboard
+simulation entirely); after adding it, the hover widget DOM node exists
+(`widgetid="editor.contrib.contentHoverWidget"`).
+
+Fix: added `import "monaco-editor/esm/vs/editor/editor.all.js";` to
+`mm-editor.ts`, plus `src/tsServerClient.ts` gained proper request/response
+correlation (`sendRequest`, keyed by `seq`/`request_seq`) since `quickinfo` -
+unlike `geterr`'s diagnostic events - is a real request/response command, and
+a new pure `src/tsServerHover.ts` translates tsserver's `quickinfo` response
+into Monaco hover content. All covered by unit tests.
+
+**Side effect worth knowing about:** `editor.all.js` also loads Monaco's
+rename-symbol UI, which pre-creates its own nested `.monaco-editor` widget
+(for the rename input box) up front, whether or not rename is ever used. Any
+test locator using a bare `.monaco-editor` selector will now match 2 elements
+instead of 1 - `e2e/ide.spec.ts` scopes to `.monaco-editor[data-uri]` to
+disambiguate the real editor root from it.
+
+**Not yet confirmed working under the Playwright e2e runner** - the hover
+e2e test hits the exact same symptom as the diagnostic test below (widget
+exists but content never populates within the automated run), which is the
+same pre-existing, already-documented gap between automated Playwright runs
+and live manual browser testing - not re-investigated further per the lead
+developer's steer not to keep chasing that discrepancy right now.
+
 ## New problem found during verification: cross-test WebContainer session sharing breaks tsserver
 
 **Status:** Open, not yet fixed.
