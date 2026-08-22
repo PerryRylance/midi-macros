@@ -91,3 +91,34 @@ test("shows a hover popup with type information for a regular (non-error) token"
         await expect(hover).toContainText("answer", { timeout: 2_000 });
     }).toPass({ timeout: 60_000 });
 });
+
+test("shows member auto-complete after typing a dot", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    await replaceEditorContent(
+        page,
+        'import { File } from "@perry-rylance/midi";\n\nconst file = new File();\n\nfile.\n\nexport default file;'
+    );
+
+    await expect(page.locator("#editor-status")).toHaveText("");
+
+    // Click the line then jump to its end, so the caret lands right after
+    // the dot rather than wherever the click's pixel position happens to map to.
+    await editorRoot(page).locator(".view-line", { hasText: "file." }).getByText("file.").click();
+    await page.keyboard.press("End");
+
+    // Same "fires once, doesn't retry itself" situation as hover above -
+    // "Trigger Suggest" is the keyboard-accessible way to re-ask for
+    // completions at the current cursor position until tsserver is ready.
+    // Dismissing first matters: once open, the widget doesn't re-query on a
+    // repeated Ctrl+Space, so a retry that leaves it open (still showing an
+    // earlier too-early, word-based-only result) never actually asks again.
+    const suggestions = page.locator(".suggest-widget");
+
+    await expect(async () => {
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Control+Space");
+        await expect(suggestions).toContainText("tracks", { timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+});

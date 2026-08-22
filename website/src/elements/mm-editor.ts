@@ -13,6 +13,7 @@ import { createEchoFilter } from "../echoFilter";
 import { createSentMessageTracker } from "../sentMessageTracker";
 import { toMonacoMarkers, type TsServerDiagnosticEventBody } from "../tsServerDiagnostics";
 import { toHoverContent, type TsServerQuickInfo } from "../tsServerHover";
+import { toCompletionItems, type TsServerCompletionInfo } from "../tsServerCompletions";
 import { hasDefaultExport } from "../defaultExport";
 
 // The worker scripts actually live at "dist/workers/*.js" (see
@@ -85,6 +86,14 @@ export class MmEditorElement extends HTMLElement {
 
         monaco.languages.registerHoverProvider("typescript", {
             provideHover: (model, position) => this.#provideHover(model, position)
+        });
+
+        // Matches the trigger characters VS Code's own TypeScript extension
+        // uses - Monaco already triggers completion on plain word characters
+        // by default, so this is only needed for the special ones.
+        monaco.languages.registerCompletionItemProvider("typescript", {
+            triggerCharacters: [".", "\"", "'", "`", "/", "@", "<", "#"],
+            provideCompletionItems: (model, position) => this.#provideCompletionItems(model, position)
         });
     }
 
@@ -213,6 +222,54 @@ export class MmEditorElement extends HTMLElement {
             // tsserver rejects with success: false ("No content available.")
             // for positions with nothing to show - not a real error.
             return null;
+        }
+    }
+
+    async #provideCompletionItems(
+        model: monaco.editor.ITextModel,
+        position: monaco.Position
+    ): Promise<monaco.languages.CompletionList | undefined> {
+        const client = this.#tsServerClient;
+
+        if (!client || model.uri.toString() !== this.#model.uri.toString()) return undefined;
+
+        try {
+            // Completion is triggered on every keystroke (immediately, no
+            // debounce), so the debounced `#syncDocument()` resync may not
+            // have reached tsserver yet - send the latest content directly
+            // first. tsserver processes commands strictly in order, so this
+            // guarantees `completionInfo` below sees it, without needing to
+            // wait for a response.
+            void client.sendCommand("open", {
+                file: WORKDIR_FILE_PATH,
+                fileContent: model.getValue(),
+                scriptKindName: "TS",
+                projectRootPath: WORKDIR_ROOT_PATH
+            });
+
+            const info = await client.sendRequest<TsServerCompletionInfo>("completionInfo", {
+                file: WORKDIR_FILE_PATH,
+                line: position.lineNumber,
+                offset: position.column,
+                projectRootPath: WORKDIR_ROOT_PATH
+            });
+
+            const word = model.getWordUntilPosition(position);
+            const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
+
+            return {
+                suggestions: toCompletionItems(info).map(item => ({
+                    label: item.label,
+                    kind: item.kind as monaco.languages.CompletionItemKind,
+                    insertText: item.insertText,
+                    sortText: item.sortText,
+                    range
+                }))
+            };
+        } catch {
+            // tsserver rejects when there's genuinely nothing to complete
+            // (e.g. inside a string with no matching paths) - not a real error.
+            return undefined;
         }
     }
 

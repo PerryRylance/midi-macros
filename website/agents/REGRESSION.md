@@ -467,6 +467,40 @@ hover computation under Playwright (same conclusion reached earlier for the
 first hover e2e attempt) - the test uses click-to-position-caret +
 the `Control+K Control+I` "Show Hover" keybinding instead.
 
+## Follow-up feature: member auto-complete after typing `.`
+
+**Status:** RESOLVED.
+
+Same pattern as hover: a pure translation module
+(`src/tsServerCompletions.ts`) maps tsserver's `completionInfo` response
+(`entries: [{name, kind, kindModifiers, sortText}]`) into Monaco
+`CompletionItemKind`/label/insertText data, unit tested independently of
+Monaco. `mm-editor.ts` registers a `CompletionItemProvider` for
+`"typescript"` with `triggerCharacters: [".", "\"", "'", "\`", "/", "@", "<", "#"]`
+(Monaco already triggers on plain word characters by default) and drives it
+via `client.sendRequest("completionInfo", {file, line, offset, projectRootPath})`,
+same `projectRootPath` requirement as `quickinfo` above.
+
+One completion-specific wrinkle: completion fires on **every** keystroke
+immediately (no debounce), but `#syncDocument()`'s own resync of the latest
+content to tsserver *is* debounced (300ms) - typing the trigger character
+itself resets that debounce timer, so the completion request could easily
+reach tsserver before the content update does. Fixed by having
+`#provideCompletionItems` send a fresh `open` with the model's current
+content directly (fire-and-forget, no debounce) immediately before
+`completionInfo` - tsserver processes commands strictly in order via its
+`readline` reader, so this guarantees `completionInfo` sees the latest
+content without needing to await a response.
+
+**e2e test note:** same "fires once, doesn't retry itself" situation as
+hover, but with an extra trap: once the suggest widget is already open
+(e.g. showing Monaco's own word-based fallback suggestions from an
+attempt made before tsserver was ready), pressing the trigger keybinding
+again (`Control+Space`) does **not** re-query providers - it's a no-op while
+the widget is visible. `e2e/ide.spec.ts`'s completion test presses `Escape`
+to dismiss before every retry attempt, or the retry loop silently keeps
+"succeeding" at re-showing the same stale, tsserver-less result forever.
+
 ## New problem found during verification: cross-test WebContainer session sharing breaks tsserver
 
 **Status:** Open, not yet fixed.
