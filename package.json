@@ -1,9 +1,15 @@
 {
-  "name": "midi-macros",
-  "version": "0.0.0",
+  "name": "@perry-rylance/midi-macros",
+  "author": "Perry Rylance",
+  "license": "MIT",
   "description": "Collection of functions to assist with composing MIDI from scratch with @perry-rylance/midi",
+  "version": "0.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "vitest",
     "test": "tsc && vitest run",
@@ -18,8 +24,6 @@
     "composition",
     "macros"
   ],
-  "author": "Perry Rylance",
-  "license": "MIT",
   "bugs": {
     "url": "https://github.com/PerryRylance/midi-macros/issues"
   },
