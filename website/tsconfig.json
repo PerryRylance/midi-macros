@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+
+    "module": "esnext",
+    "target": "es2020",
+    "lib": ["es2020", "dom"],
+    "types": [],
+
+    "sourceMap": true,
+
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true,
+
+    "moduleResolution": "bundler",
+    "esModuleInterop": true
+  },
+  "include": ["src", "tests", "e2e"]
+}
