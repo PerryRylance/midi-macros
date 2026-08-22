@@ -7,15 +7,8 @@
 </head>
 <body>
     <h1>midi-macros</h1>
-    <p id="status">Loading...</p>
-    <form id="install-form">
-        <label for="package-name">npm package name</label>
-        <input id="package-name" name="package-name" type="text" required disabled />
-        <button id="install-button" type="submit" disabled>Install</button>
-    </form>
-    <div id="terminal"></div>
-    <h2>Installed packages</h2>
-    <ul id="package-list"></ul>
+    <mm-package-manager></mm-package-manager>
+    <mm-terminal id="terminal"></mm-terminal>
     <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
