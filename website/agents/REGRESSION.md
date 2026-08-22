@@ -332,6 +332,38 @@ default-export check.
 see the next section.** This is a newly-discovered, separate problem, not a
 sign the direct-tsserver approach itself is unsound.
 
+## Follow-up fix: tsserver's own output is Content-Length framed, not newline-delimited
+
+**Status:** RESOLVED. Confirmed against real captured bytes from a live
+WebContainer-spawned tsserver process, and confirmed clean (no console
+errors) against the running app.
+
+The initial direct-tsserver implementation above wrongly assumed tsserver's
+wire protocol was newline-delimited JSON in *both* directions. In fact it's
+asymmetric: commands sent to it are read via Node's `readline` (plain
+newline-delimited JSON is correct there), but tsserver's own
+responses/events are written via its internal `formatMessage`/`sys.write`,
+which frames them with an LSP-style `Content-Length` header - confirmed
+directly in `typescript.js`'s `formatMessage2` and `_tsserver.js`'s
+`sys.write`. The old (wrong) newline-based parser happened to "work" only by
+accident: it split tsserver's `Content-Length: N` header line off as one
+(failed-to-parse, silently logged) line, but the JSON body itself - having no
+embedded raw newlines - still landed on its own line and parsed correctly.
+This is exactly what surfaced as a stream of "Content-Length: NN is not valid
+JSON" console errors, which is what prompted this fix.
+
+A second wrinkle, also confirmed against real captured bytes: WebContainer's
+pseudo-terminal applies ONLCR-style output processing (`"\n"` -> `"\r\n"`) to
+a spawned process's *own* stdout, not just to echoed input - so tsserver's
+`\r\n\r\n` header separator arrives on the wire mangled as `\r\r\n\r\r\n`.
+`TsServerMessageBuffer` (`src/tsServerProtocol.ts`) now normalizes any run of
+one-or-more `\r` followed by `\n` down to a single `\n` before parsing (safe
+because `JSON.stringify` always escapes literal CR/LF inside string content,
+so a raw CR/LF byte can only ever be tsserver's own framing, never message
+content), and matches on a blank-line separator instead of requiring the
+literal `\r\n\r\n` bytes. Covered by unit tests using both a synthetic
+mangled fixture and a byte-for-byte real captured response.
+
 ## New problem found during verification: cross-test WebContainer session sharing breaks tsserver
 
 **Status:** Open, not yet fixed.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { WebContainerProcess } from "@webcontainer/api";
 import { createTsServerClient } from "../src/tsServerClient";
-import { encodeTsServerCommand } from "../src/tsServerProtocol";
+import { encodeTsServerCommand, encodeTsServerMessage } from "../src/tsServerProtocol";
 import { createEchoFilter } from "../src/echoFilter";
 import { createSentMessageTracker } from "../src/sentMessageTracker";
 
@@ -29,6 +29,10 @@ function createFakeProcess() {
 }
 
 describe("createTsServerClient", () => {
+    // tsserver's own responses/events are Content-Length framed, even though
+    // the commands we send it are plain newline-delimited JSON - see
+    // src/tsServerProtocol.ts. `feed(...)` below simulates tsserver's real
+    // output, so it uses `encodeTsServerMessage`, not `encodeTsServerCommand`.
     it("delivers a parsed event to onEvent listeners once it is fully framed", async () => {
         const { process, feed } = createFakeProcess();
         const client = createTsServerClient(process);
@@ -36,7 +40,7 @@ describe("createTsServerClient", () => {
         const received: unknown[] = [];
         client.onEvent(event => received.push(event));
 
-        feed(encodeTsServerCommand({ seq: 0, type: "event", event: "semanticDiag", body: { file: "index.ts", diagnostics: [] } }));
+        feed(encodeTsServerMessage({ seq: 0, type: "event", event: "semanticDiag", body: { file: "index.ts", diagnostics: [] } }));
 
         await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -50,7 +54,7 @@ describe("createTsServerClient", () => {
         const received: unknown[] = [];
         client.onEvent(event => received.push(event));
 
-        feed(encodeTsServerCommand({ seq: 0, type: "response", command: "open", success: true }));
+        feed(encodeTsServerMessage({ seq: 0, type: "response", command: "open", success: true }));
 
         await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -74,7 +78,7 @@ describe("createTsServerClient", () => {
         const errors: unknown[] = [];
         client.onError(error => errors.push(error));
 
-        feed("not-json{\n");
+        feed("Content-Length: 9\r\n\r\nnot-json{");
 
         await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -99,8 +103,8 @@ describe("createTsServerClient", () => {
         const received: unknown[] = [];
         client.onEvent(event => received.push(event));
 
-        // Shaped like an event so that, if the echo were NOT dropped, it
-        // would show up in `received` and this test would catch it.
+        // A PTY echo reproduces exactly what we wrote - newline-framed, not
+        // Content-Length framed, since that's the format we send commands in.
         const command = { seq: 0, type: "event", event: "requestCompleted" };
         await client.sendCommand(command);
 
