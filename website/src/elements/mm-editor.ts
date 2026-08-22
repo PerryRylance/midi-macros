@@ -13,7 +13,12 @@ import { createEchoFilter } from "../echoFilter";
 import { createSentMessageTracker } from "../sentMessageTracker";
 import { toMonacoMarkers, type TsServerDiagnosticEventBody } from "../tsServerDiagnostics";
 import { toHoverContent, type TsServerQuickInfo } from "../tsServerHover";
-import { toCompletionItems, type TsServerCompletionInfo } from "../tsServerCompletions";
+import {
+    toAdditionalTextEdits,
+    toCompletionItems,
+    type TsServerCompletionEntryDetails,
+    type TsServerCompletionInfo
+} from "../tsServerCompletions";
 import { toSignatureHelp, type TsServerSignatureHelpItems } from "../tsServerSignatureHelp";
 import { hasDefaultExport } from "../defaultExport";
 
@@ -59,6 +64,13 @@ const DOCUMENT_SYNC_DEBOUNCE_MS = 300;
 // diagnosed.
 const WARMUP_SETTLE_DELAY_MS = 2000;
 
+// Extra provider-owned data stashed on a completion item so
+// #resolveCompletionItem can identify which tsserver entry it came from -
+// only present on auto-import candidates (see #resolveCompletionItem).
+interface AutoImportCompletionItem extends monaco.languages.CompletionItem {
+    tsAutoImportEntry?: { name: string; source?: string; data?: unknown };
+}
+
 export class MmEditorElement extends HTMLElement {
     #model: monaco.editor.ITextModel;
     #status: HTMLParagraphElement;
@@ -94,7 +106,8 @@ export class MmEditorElement extends HTMLElement {
         // by default, so this is only needed for the special ones.
         monaco.languages.registerCompletionItemProvider("typescript", {
             triggerCharacters: [".", "\"", "'", "`", "/", "@", "<", "#"],
-            provideCompletionItems: (model, position) => this.#provideCompletionItems(model, position)
+            provideCompletionItems: (model, position) => this.#provideCompletionItems(model, position),
+            resolveCompletionItem: item => this.#resolveCompletionItem(item as AutoImportCompletionItem)
         });
 
         monaco.languages.registerSignatureHelpProvider("typescript", {
@@ -258,6 +271,11 @@ export class MmEditorElement extends HTMLElement {
                 file: WORKDIR_FILE_PATH,
                 line: position.lineNumber,
                 offset: position.column,
+                // Surfaces symbols not yet imported (e.g. "Track" from
+                // "@perry-rylance/midi" when only "File" is imported) as
+                // completion candidates - accepting one adds the import via
+                // #resolveCompletionItem below.
+                includeExternalModuleExports: true,
                 projectRootPath: WORKDIR_ROOT_PATH
             });
 
@@ -265,18 +283,61 @@ export class MmEditorElement extends HTMLElement {
             const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
 
             return {
-                suggestions: toCompletionItems(info).map(item => ({
+                suggestions: toCompletionItems(info).map((item): AutoImportCompletionItem => ({
                     label: item.label,
                     kind: item.kind as monaco.languages.CompletionItemKind,
                     insertText: item.insertText,
                     sortText: item.sortText,
-                    range
+                    range,
+                    ...(item.hasAction
+                        ? {
+                            tsAutoImportEntry: {
+                                name: item.label,
+                                ...(item.source === undefined ? {} : { source: item.source }),
+                                data: item.data
+                            }
+                        }
+                        : {})
                 }))
             };
         } catch {
             // tsserver rejects when there's genuinely nothing to complete
             // (e.g. inside a string with no matching paths) - not a real error.
             return undefined;
+        }
+    }
+
+    async #resolveCompletionItem(item: AutoImportCompletionItem): Promise<monaco.languages.CompletionItem> {
+        const client = this.#tsServerClient;
+        const entry = item.tsAutoImportEntry;
+
+        if (!client || !entry) return item;
+
+        try {
+            // The item's own range (always a plain IRange - #provideCompletionItems
+            // never uses the insert/replace variant) starts where completion
+            // was requested - completionEntryDetails needs that same
+            // position to resolve which declaration this entry refers to.
+            const range = item.range as monaco.IRange;
+
+            const [details] = await client.sendRequest<TsServerCompletionEntryDetails[]>("completionEntryDetails", {
+                file: WORKDIR_FILE_PATH,
+                line: range.startLineNumber,
+                offset: range.startColumn,
+                entryNames: [entry],
+                projectRootPath: WORKDIR_ROOT_PATH
+            });
+
+            if (!details) return item;
+
+            const additionalTextEdits = toAdditionalTextEdits(details, WORKDIR_FILE_PATH).map(edit => ({
+                range: new monaco.Range(edit.range.startLineNumber, edit.range.startColumn, edit.range.endLineNumber, edit.range.endColumn),
+                text: edit.text
+            }));
+
+            return { ...item, additionalTextEdits };
+        } catch {
+            return item;
         }
     }
 

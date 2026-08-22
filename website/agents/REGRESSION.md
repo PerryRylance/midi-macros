@@ -530,6 +530,55 @@ completion (fresh `open` sent first, since this also fires immediately on
 typing `(`/`,` with no debounce - same reasoning as the completion fix
 above).
 
+## Follow-up feature: auto-import suggestions for unimported symbols
+
+**Status:** RESOLVED. Worked correctly on the first live try; only the e2e
+test's locator needed a fix (see below).
+
+Typing `new Track` when only `File` is imported now offers `Track` as a
+completion and, on accepting it, inserts it into the existing import
+statement (`import { File, Track } from "@perry-rylance/midi";`) rather than
+adding a whole new import line - tsserver is smart enough to update an
+existing import from the same module instead of duplicating one.
+
+This is the one feature so far needing a genuinely two-step tsserver
+protocol dance, ground-truthed live before writing any code (per this file's
+now-standing practice):
+
+1. `completionInfo` needs `includeExternalModuleExports: true` in its own
+   request arguments (there's also a `UserPreferences`-based way to set this,
+   but the direct per-request argument is simpler and works) to surface
+   symbols not yet imported at all. Matching entries come back flagged
+   `hasAction: true` with `source`/`data` fields identifying exactly which
+   declaration they refer to (confirmed live: `source` is the absolute path
+   to the `.d.ts`-backed module, `data` is an opaque `{exportName,
+   exportMapKey, fileName}` tsserver needs to look the symbol back up).
+2. The actual import edit is **not** in the initial completion response - it
+   only comes from a follow-up `completionEntryDetails` request (same
+   `file`/`line`/`offset`, plus `entryNames: [{name, source, data}]`), whose
+   `codeActions[].changes[].textChanges` are the edits to make.
+
+Implemented the idiomatic Monaco way rather than resolving every item
+eagerly: `mm-editor.ts`'s `CompletionItemProvider` stashes the tsserver
+`{name, source, data}` on each auto-import candidate item (a plain extra
+property, `tsAutoImportEntry` - Monaco's `CompletionItem` type has no named
+extension point for this, but it's a plain JS object at runtime and the
+exact same item reference comes back to `resolveCompletionItem`), and only
+calls `completionEntryDetails` - lazily, one item at a time - when Monaco
+resolves the highlighted item (i.e. right before it might be accepted).
+`toAdditionalTextEdits()` (`src/tsServerCompletions.ts`) converts the
+resulting `codeActions` into Monaco's `additionalTextEdits`, filtered to
+edits targeting the file being edited.
+
+**e2e test note:** Monaco's suggest widget highlights the *matched prefix*
+inside every row starting with the typed text (typing "Track" highlights
+"Track" inside "Track", "TrackEvent", "TrackCollection", "TrackNameEvent",
+...), so a locator matching row text containing an exact "Track" span hits a
+strict-mode violation (many rows qualify). The row's accessible role/name
+(`page.getByRole("option", { name: "Track", exact: true })`) is the only
+reliable way to target one specific entry when multiple entries share a
+prefix.
+
 ## New problem found during verification: cross-test WebContainer session sharing breaks tsserver
 
 **Status:** Open, not yet fixed.

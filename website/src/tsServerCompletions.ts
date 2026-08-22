@@ -38,6 +38,13 @@ export interface TsServerCompletionEntry {
     kindModifiers?: string;
     sortText: string;
     insertText?: string;
+    // Set for auto-import candidates (a symbol not yet imported, e.g. "Track"
+    // from "@perry-rylance/midi") - `hasAction` flags that accepting this
+    // entry needs an additional edit, `source`/`data` identify exactly which
+    // declaration for a follow-up `completionEntryDetails` request.
+    hasAction?: boolean;
+    source?: string;
+    data?: unknown;
 }
 
 export interface TsServerCompletionInfo {
@@ -49,6 +56,47 @@ export interface CompletionItemData {
     kind: number;
     insertText: string;
     sortText: string;
+    hasAction?: boolean;
+    source?: string;
+    data?: unknown;
+}
+
+export interface TsServerCodeEditLocation {
+    line: number;
+    offset: number;
+}
+
+export interface TsServerCodeEdit {
+    start: TsServerCodeEditLocation;
+    end: TsServerCodeEditLocation;
+    newText: string;
+}
+
+export interface TsServerFileCodeEdits {
+    fileName: string;
+    textChanges: TsServerCodeEdit[];
+}
+
+export interface TsServerCodeAction {
+    description: string;
+    changes: TsServerFileCodeEdits[];
+}
+
+export interface TsServerCompletionEntryDetails {
+    name: string;
+    codeActions?: TsServerCodeAction[];
+}
+
+export interface EditRange {
+    startLineNumber: number;
+    startColumn: number;
+    endLineNumber: number;
+    endColumn: number;
+}
+
+export interface TextEditData {
+    range: EditRange;
+    text: string;
 }
 
 // tsserver's ScriptElementKind string constants (see typescript's own
@@ -99,6 +147,33 @@ export function toCompletionItems(info: TsServerCompletionInfo): CompletionItemD
         label: entry.name,
         kind: kindFor(entry.kind),
         insertText: entry.insertText ?? entry.name,
-        sortText: entry.sortText
+        sortText: entry.sortText,
+        ...(entry.hasAction ? { hasAction: entry.hasAction } : {}),
+        ...(entry.source === undefined ? {} : { source: entry.source }),
+        ...(entry.data === undefined ? {} : { data: entry.data })
     }));
+}
+
+export function toAdditionalTextEdits(details: TsServerCompletionEntryDetails, fileName: string): TextEditData[] {
+    const edits: TextEditData[] = [];
+
+    for (const action of details.codeActions ?? []) {
+        for (const change of action.changes) {
+            if (change.fileName !== fileName) continue;
+
+            for (const textChange of change.textChanges) {
+                edits.push({
+                    range: {
+                        startLineNumber: textChange.start.line,
+                        startColumn: textChange.start.offset,
+                        endLineNumber: textChange.end.line,
+                        endColumn: textChange.end.offset
+                    },
+                    text: textChange.newText
+                });
+            }
+        }
+    }
+
+    return edits;
 }

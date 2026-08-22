@@ -143,3 +143,31 @@ test("shows argument/overload hints inside a call's parentheses", async ({ page 
 
     await expect(hints).toContainText("value");
 });
+
+test("adds the import when accepting an auto-import completion for an unimported symbol", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    // "Track" is deliberately not imported here - only "File" is.
+    await replaceEditorContent(page, 'import { File } from "@perry-rylance/midi";\n\nconst file = new File();\nnew Track');
+
+    // Monaco virtualizes the suggest list (whole-widget innerText doesn't
+    // reliably reflect visible rows), and highlights the matched prefix
+    // inside every row starting with "Track" (TrackEvent, TrackCollection,
+    // ...) - the accessible role/name is the only way to target the exact
+    // "Track" entry specifically.
+    const trackRow = page.getByRole("option", { name: "Track", exact: true });
+
+    await expect(async () => {
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Control+Space");
+        await expect(trackRow).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 60_000 });
+
+    await trackRow.click();
+    await page.keyboard.press("Tab");
+
+    await expect(editorRoot(page).locator(".view-line").first()).toHaveText(
+        'import { File, Track } from "@perry-rylance/midi";'
+    );
+});
