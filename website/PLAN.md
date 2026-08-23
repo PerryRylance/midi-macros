@@ -49,7 +49,7 @@ Please get Monaco into the main window with these features ready to go.
 ### Side bar
 Please build out the side bar as described above, we need a `<select>` with a list of sound fonts. Right now just have a single font, the one in `examples` seems good.
 
-The browser needs to load that from a remote URL on init or change, so be sure to test for that.
+The browser needs to load that from a remote URL on init or change, so be sure to test for that. We can host this particular in public/ if it helps.
 
 ### Playback
 See the `examples` folder above this `website` folder.

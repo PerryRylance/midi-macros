@@ -10,6 +10,24 @@
     <mm-editor id="editor"></mm-editor>
     <mm-package-manager></mm-package-manager>
     <mm-terminal id="terminal"></mm-terminal>
+    <mm-sidebar>
+        <section id="tab-welcome" data-tab-label="Welcome">
+            <h2>Welcome</h2>
+            <p>midi-macros is a browser-based composition tool built on <code>@perry-rylance/midi</code> and <code>@perry-rylance/midi-macros</code>. Write TypeScript in the editor, then use the controls here to play it back.</p>
+        </section>
+        <section id="tab-library" data-tab-label="Library">
+            <h2>Library</h2>
+            <p>No saved projects yet.</p>
+        </section>
+        <section id="tab-audio" data-tab-label="Audio">
+            <h2>Audio</h2>
+            <mm-soundfont-select></mm-soundfont-select>
+        </section>
+        <section id="tab-reference" data-tab-label="Reference">
+            <h2>Reference</h2>
+            <p>Documentation for <code>@perry-rylance/midi</code> and <code>@perry-rylance/midi-macros</code> is coming soon.</p>
+        </section>
+    </mm-sidebar>
     <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
