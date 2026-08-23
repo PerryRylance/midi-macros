@@ -76,6 +76,47 @@ test("disables remove buttons while the terminal is busy", async ({ page }) => {
     await expect(removeButton).toBeEnabled();
 });
 
+// Checks the panel's "hidden" attribute directly, rather than
+// toBeVisible()/toBeHidden() - the Output tab starts genuinely empty (no
+// build has run), which collapses it to zero rendered height, and Playwright
+// treats a zero-size element as not visible regardless of the "hidden"
+// attribute. What these tests care about is which tab is active, not pixels.
+function isActiveTabPanel(page: import("@playwright/test").Page, panelId: string) {
+    return expect(page.locator(`#${panelId}`)).not.toHaveAttribute("hidden");
+}
+
+function isInactiveTabPanel(page: import("@playwright/test").Page, panelId: string) {
+    return expect(page.locator(`#${panelId}`)).toHaveAttribute("hidden", "");
+}
+
+test("switches back to the Terminal tab when an install or remove starts", async ({ page }) => {
+    await page.goto("/");
+    await openPackagesTab(page);
+
+    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+
+    await page.locator("#tab-button-output").click();
+    await isActiveTabPanel(page, "tab-output");
+    await isInactiveTabPanel(page, "tab-terminal");
+
+    await page.locator("#package-name").fill("nanoid");
+    await page.locator("#install-button").click();
+
+    await isActiveTabPanel(page, "tab-terminal");
+    await isInactiveTabPanel(page, "tab-output");
+    await expect(page.locator("#status")).toHaveText("Installed nanoid.", { timeout: 60_000 });
+
+    await page.locator("#tab-button-output").click();
+    await isActiveTabPanel(page, "tab-output");
+
+    const item = page.locator("#package-list li", { hasText: "nanoid" });
+    await item.getByRole("button", { name: "Remove" }).click();
+
+    await isActiveTabPanel(page, "tab-terminal");
+    await isInactiveTabPanel(page, "tab-output");
+    await expect(page.locator("#status")).toHaveText("Removed nanoid.", { timeout: 60_000 });
+});
+
 test("preinstalls the default dependencies without a remove button", async ({ page }) => {
     await page.goto("/");
     await openPackagesTab(page);

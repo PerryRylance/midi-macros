@@ -4,6 +4,7 @@ import { startTsServer } from "../tsServer";
 import { evaluateProgram } from "../programEvaluator";
 import {
     dispatchBuildOutput,
+    dispatchBuildOutputClear,
     SOUNDFONT_LOADED_EVENT,
     SOUNDFONT_LOADING_EVENT,
     type SoundfontLoadedDetail
@@ -11,6 +12,10 @@ import {
 import { SpessaSynthOutput } from "../playback/SpessaSynthOutput";
 import type { PlaybackOutput } from "../playback/PlaybackOutput";
 import type { MmEditorElement } from "./mm-editor";
+import type { MmTabsElement } from "./mm-tabs";
+
+const BUILD_TABS_ID = "build-tabs";
+const OUTPUT_PANEL_ID = "tab-output";
 
 function toErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
@@ -30,7 +35,6 @@ export class MmPlaybackControlsElement extends HTMLElement {
     #playButton: HTMLButtonElement;
     #pauseButton: HTMLButtonElement;
     #stopButton: HTMLButtonElement;
-    #status: HTMLParagraphElement;
 
     #output: PlaybackOutput = new SpessaSynthOutput();
     #soundfont: SoundfontLoadedDetail | undefined;
@@ -51,16 +55,13 @@ export class MmPlaybackControlsElement extends HTMLElement {
         this.#pauseButton = createIconButton("pause-button", "Pause", Pause);
         this.#stopButton = createIconButton("stop-button", "Stop", Square);
 
-        this.#status = document.createElement("p");
-        this.#status.id = "playback-status";
-
         this.#playButton.addEventListener("click", () => void this.#handlePlay());
         this.#pauseButton.addEventListener("click", () => this.#handlePause());
         this.#stopButton.addEventListener("click", () => this.#handleStop());
 
         this.#setDisabled(true);
 
-        this.append(this.#playButton, this.#pauseButton, this.#stopButton, this.#status);
+        this.append(this.#playButton, this.#pauseButton, this.#stopButton);
     }
 
     connectedCallback(): void {
@@ -87,7 +88,9 @@ export class MmPlaybackControlsElement extends HTMLElement {
         const source = editor.getSource();
 
         this.#setDisabled(true);
-        this.#status.textContent = "Rendering...";
+        dispatchBuildOutputClear();
+        dispatchBuildOutput({ status: "info", message: "Rendering audio..." });
+        document.querySelector<MmTabsElement>(`#${BUILD_TABS_ID}`)?.activatePanel(OUTPUT_PANEL_ID);
 
         try {
             const container = await bootWebContainer();
@@ -99,10 +102,9 @@ export class MmPlaybackControlsElement extends HTMLElement {
             this.#output.load(midi, "program");
             this.#output.play();
 
-            this.#status.textContent = "Playing.";
             dispatchBuildOutput({ status: "success", message: "Build successful." });
+            dispatchBuildOutput({ status: "info", message: "Playback started." });
         } catch (error) {
-            this.#status.textContent = "Error.";
             dispatchBuildOutput({ status: "error", message: toErrorMessage(error) });
         } finally {
             this.#setDisabled(false);
@@ -111,12 +113,12 @@ export class MmPlaybackControlsElement extends HTMLElement {
 
     #handlePause(): void {
         this.#output.pause();
-        this.#status.textContent = "Paused.";
+        dispatchBuildOutput({ status: "info", message: "Paused." });
     }
 
     #handleStop(): void {
         this.#output.stop();
-        this.#status.textContent = "Stopped.";
+        dispatchBuildOutput({ status: "info", message: "Stopped." });
     }
 }
 

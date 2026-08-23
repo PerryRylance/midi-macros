@@ -41,17 +41,19 @@ test("renders and plays the editor's default program, then pauses and stops", as
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
+    const output = page.locator("#build-output-message");
 
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await controls.getByRole("button", { name: "Play" }).click();
-    await expect(page.locator("#playback-status")).toHaveText("Playing.", { timeout: 60_000 });
+    await expect(output).toContainText("Rendering audio...");
+    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
 
     await controls.getByRole("button", { name: "Pause" }).click();
-    await expect(page.locator("#playback-status")).toHaveText("Paused.");
+    await expect(output).toContainText("Paused.");
 
     await controls.getByRole("button", { name: "Stop" }).click();
-    await expect(page.locator("#playback-status")).toHaveText("Stopped.");
+    await expect(output).toContainText("Stopped.");
 });
 
 test("shows Terminal and Output tabs below the editor, with Terminal active by default", async ({ page }) => {
@@ -62,6 +64,21 @@ test("shows Terminal and Output tabs below the editor, with Terminal active by d
 
     await expect(page.locator("#tab-terminal")).toBeVisible();
     await expect(page.locator("#tab-output")).toBeHidden();
+});
+
+test("switches to the Output tab when Play is pressed", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await expect(page.locator("#tab-terminal")).toBeVisible();
+    await expect(page.locator("#tab-output")).toBeHidden();
+
+    await controls.getByRole("button", { name: "Play" }).click();
+
+    await expect(page.locator("#tab-output")).toBeVisible();
+    await expect(page.locator("#tab-terminal")).toBeHidden();
 });
 
 test("shows a runtime ReferenceError from the program in the build output", async ({ page }) => {
@@ -84,6 +101,7 @@ test("shows a success message in the build output for a program that builds clea
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
+    const output = page.locator("#build-output-message");
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
@@ -94,5 +112,26 @@ test("shows a success message in the build output for a program that builds clea
 
     await controls.getByRole("button", { name: "Play" }).click();
 
-    await expect(page.locator("#build-output-message")).toHaveText("Build successful.", { timeout: 60_000 });
+    await expect(output).toContainText("Rendering audio...");
+    await expect(output).toContainText("Build successful.", { timeout: 60_000 });
+    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+});
+
+test("clears the build output when Play is pressed again", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    const output = page.locator("#build-output-message");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await replaceEditorContent(page, "breaking();");
+    await controls.getByRole("button", { name: "Play" }).click();
+    await expect(output).toContainText("ReferenceError: breaking is not defined", { timeout: 60_000 });
+
+    await replaceEditorContent(page, 'import { File } from "@perry-rylance/midi";\nexport default new File();');
+    await controls.getByRole("button", { name: "Play" }).click();
+
+    await expect(output).toContainText("Build successful.", { timeout: 60_000 });
+    await expect(output).not.toContainText("ReferenceError");
 });

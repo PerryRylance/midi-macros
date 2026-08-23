@@ -9,6 +9,14 @@ import {
     type InstallResult
 } from "../webcontainer";
 import { dispatchTerminalOutput } from "../events";
+import type { MmTabsElement } from "./mm-tabs";
+
+const BUILD_TABS_ID = "build-tabs";
+const TERMINAL_PANEL_ID = "tab-terminal";
+
+function switchToTerminalTab(): void {
+    document.querySelector<MmTabsElement>(`#${BUILD_TABS_ID}`)?.activatePanel(TERMINAL_PANEL_ID);
+}
 
 export class MmPackagePanelElement extends HTMLElement {
     #container: WebContainer | undefined;
@@ -59,6 +67,7 @@ export class MmPackagePanelElement extends HTMLElement {
     }
 
     async #boot(): Promise<void> {
+        switchToTerminalTab();
         dispatchTerminalOutput(`$ npm install ${DEFAULT_DEPENDENCIES.join(" ")}\n`);
 
         this.#container = await bootWebContainer(chunk => dispatchTerminalOutput(chunk));
@@ -107,6 +116,7 @@ export class MmPackagePanelElement extends HTMLElement {
     }
 
     async #run(operation: () => Promise<InstallResult>, verb: string, name: string): Promise<void> {
+        switchToTerminalTab();
         this.#setBusy(true);
 
         try {

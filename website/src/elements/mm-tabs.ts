@@ -41,6 +41,12 @@ export class MmTabsElement extends HTMLElement {
         });
     }
 
+    activatePanel(panelId: string): void {
+        const panel = this.#panels.find(candidate => candidate.id === panelId);
+
+        if (panel) this.#activate(panel);
+    }
+
     #activate(target: HTMLElement): void {
         for (const panel of this.#panels) {
             panel.hidden = panel !== target;
