@@ -2,6 +2,7 @@ $dark-text: #000000;
 $dark-background: #306082;
 $light-text: #ffffff;
 $light-background: #ffffff;
+$disabled: #696a6a;
 
 html, body
 {
@@ -13,6 +14,27 @@ html, body
 body, button
 {
     font-family: Segoe UI,Frutiger,Frutiger Linotype,Dejavu Sans,Helvetica Neue,Arial,sans-serif;
+}
+
+button
+{
+    cursor: pointer;
+    background-color: transparent;
+    color: $light-text;
+    border: none;
+
+    &:disabled
+    {
+        color: $disabled;
+    }
+
+    &:active
+    {
+        position: relative;
+        top: 2px;
+        left: 2px;
+        color: #cbdbfc;
+    }
 }
 
 body
@@ -44,6 +66,18 @@ h1
 p#editor-status
 {
     margin: 0;
+}
+
+#playback-controls 
+{
+    gap: .5rem;
+
+    &, button
+    {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
 }
 
 .split
@@ -115,8 +149,6 @@ mm-sidebar
 
     & > nav > button
     {
-        cursor: pointer;
-
         background: none;
         border: none;
 
