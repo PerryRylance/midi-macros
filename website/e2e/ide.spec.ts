@@ -144,7 +144,7 @@ test("shows argument/overload hints inside a call's parentheses", async ({ page 
     await expect(hints).toContainText("value");
 });
 
-test("adds the import when accepting an auto-import completion for an unimported symbol", async ({ page }) => {
+test("shows the source package on an auto-import suggestion and adds the import when accepted", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
@@ -155,14 +155,21 @@ test("adds the import when accepting an auto-import completion for an unimported
     // reliably reflect visible rows), and highlights the matched prefix
     // inside every row starting with "Track" (TrackEvent, TrackCollection,
     // ...) - the accessible role/name is the only way to target the exact
-    // "Track" entry specifically.
-    const trackRow = page.getByRole("option", { name: "Track", exact: true });
+    // "Track" entry specifically. Its aria-label is "Track, <package>" since
+    // the suggestion shows its source package for disambiguation (the thing
+    // this test also asserts on) - matching the full label doubles as
+    // confirming that annotation is present.
+    const trackRow = page.getByRole("option", { name: "Track, @perry-rylance/midi", exact: true });
 
     await expect(async () => {
         await page.keyboard.press("Escape");
         await page.keyboard.press("Control+Space");
         await expect(trackRow).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 60_000 });
+
+    // The visible, dimmed "source package" label VS Code shows for
+    // disambiguation - `.details-label` is what actually renders it.
+    await expect(trackRow.locator(".details-label")).toHaveText("@perry-rylance/midi");
 
     await trackRow.click();
     await page.keyboard.press("Tab");

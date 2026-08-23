@@ -83,6 +83,55 @@ describe("toCompletionItems", () => {
         });
     });
 
+    // VS Code shows which package an auto-import suggestion comes from
+    // (dimmed, right-aligned) right in the completion list, without needing
+    // to resolve the item first - it's derived from the entry's own
+    // `source` path, not a separate humanized field from tsserver (that,
+    // `sourceDisplay`, is only present later on completionEntryDetails).
+    it("derives the source package name from a scoped package's node_modules path", () => {
+        const [item] = toCompletionItems({
+            entries: [{
+                name: "Track",
+                kind: "class",
+                sortText: "16",
+                hasAction: true,
+                source: "/home/workspace/node_modules/@perry-rylance/midi/dist/Track"
+            }]
+        });
+
+        expect(item?.sourcePackage).toBe("@perry-rylance/midi");
+    });
+
+    it("derives the source package name from an unscoped package's node_modules path", () => {
+        const [item] = toCompletionItems({
+            entries: [{ name: "get", kind: "function", sortText: "16", hasAction: true, source: "/home/workspace/node_modules/lodash/get" }]
+        });
+
+        expect(item?.sourcePackage).toBe("lodash");
+    });
+
+    it("uses the innermost package for a nested node_modules path", () => {
+        const [item] = toCompletionItems({
+            entries: [{ name: "x", kind: "function", sortText: "16", hasAction: true, source: "/home/workspace/node_modules/foo/node_modules/bar/index" }]
+        });
+
+        expect(item?.sourcePackage).toBe("bar");
+    });
+
+    it("omits sourcePackage when source isn't a node_modules path (e.g. a local file)", () => {
+        const [item] = toCompletionItems({
+            entries: [{ name: "helper", kind: "function", sortText: "16", hasAction: true, source: "/home/workspace/src/helper" }]
+        });
+
+        expect(item).not.toHaveProperty("sourcePackage");
+    });
+
+    it("omits sourcePackage when there's no source at all", () => {
+        const [item] = toCompletionItems({ entries: [{ name: "tracks", kind: "getter", sortText: "11" }] });
+
+        expect(item).not.toHaveProperty("sourcePackage");
+    });
+
     it("omits hasAction/source/data entirely for ordinary entries", () => {
         const [item] = toCompletionItems({ entries: [{ name: "tracks", kind: "getter", sortText: "11" }] });
 

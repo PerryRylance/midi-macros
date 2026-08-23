@@ -59,6 +59,11 @@ export interface CompletionItemData {
     hasAction?: boolean;
     source?: string;
     data?: unknown;
+    // The npm package an auto-import candidate would be imported from (e.g.
+    // "@perry-rylance/midi"), for disambiguating same-named suggestions -
+    // shown right in the completion list, VS Code-style, without needing to
+    // resolve the item first.
+    sourcePackage?: string;
 }
 
 export interface TsServerCodeEditLocation {
@@ -142,16 +147,37 @@ function kindFor(tsKind: string): number {
     return KIND_BY_SCRIPT_ELEMENT_KIND[tsKind] ?? CompletionItemKind.Text;
 }
 
+// tsserver's entry only gives us a raw filesystem path to the declaration
+// (e.g. ".../node_modules/@perry-rylance/midi/dist/Track") - the humanized
+// module specifier ("@perry-rylance/midi") only shows up later, in
+// completionEntryDetails' sourceDisplay. Deriving it from the path directly
+// avoids needing that extra round trip just to label every item in the list.
+function packageNameFromSource(source: string): string | undefined {
+    const segments = source.split("node_modules/");
+
+    if (segments.length < 2) return undefined;
+
+    const afterNodeModules = segments[segments.length - 1] ?? "";
+    const match = /^(@[^/]+\/[^/]+|[^/]+)/.exec(afterNodeModules);
+
+    return match?.[1];
+}
+
 export function toCompletionItems(info: TsServerCompletionInfo): CompletionItemData[] {
-    return info.entries.map(entry => ({
-        label: entry.name,
-        kind: kindFor(entry.kind),
-        insertText: entry.insertText ?? entry.name,
-        sortText: entry.sortText,
-        ...(entry.hasAction ? { hasAction: entry.hasAction } : {}),
-        ...(entry.source === undefined ? {} : { source: entry.source }),
-        ...(entry.data === undefined ? {} : { data: entry.data })
-    }));
+    return info.entries.map(entry => {
+        const sourcePackage = entry.source === undefined ? undefined : packageNameFromSource(entry.source);
+
+        return {
+            label: entry.name,
+            kind: kindFor(entry.kind),
+            insertText: entry.insertText ?? entry.name,
+            sortText: entry.sortText,
+            ...(entry.hasAction ? { hasAction: entry.hasAction } : {}),
+            ...(entry.source === undefined ? {} : { source: entry.source }),
+            ...(entry.data === undefined ? {} : { data: entry.data }),
+            ...(sourcePackage === undefined ? {} : { sourcePackage })
+        };
+    });
 }
 
 export function toAdditionalTextEdits(details: TsServerCompletionEntryDetails, fileName: string): TextEditData[] {

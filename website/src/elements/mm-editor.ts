@@ -284,7 +284,12 @@ export class MmEditorElement extends HTMLElement {
 
             return {
                 suggestions: toCompletionItems(info).map((item): AutoImportCompletionItem => ({
-                    label: item.label,
+                    // `description` renders dimmed on the right of the row -
+                    // this is what shows "@perry-rylance/midi" next to
+                    // "Track" for disambiguation, VS Code-style.
+                    label: item.sourcePackage === undefined
+                        ? item.label
+                        : { label: item.label, description: item.sourcePackage },
                     kind: item.kind as monaco.languages.CompletionItemKind,
                     insertText: item.insertText,
                     sortText: item.sortText,

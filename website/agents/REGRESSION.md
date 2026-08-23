@@ -579,6 +579,44 @@ strict-mode violation (many rows qualify). The row's accessible role/name
 reliable way to target one specific entry when multiple entries share a
 prefix.
 
+## Follow-up feature: showing which package an auto-import suggestion comes from
+
+**Status:** RESOLVED. Confirmed live, no surprises this time - the earlier
+policy of ground-truthing every new tsserver interaction before coding paid
+off again in reverse: this one needed *no* new tsserver call at all.
+
+VS Code shows the source module dimmed on the right of an auto-import
+suggestion (e.g. "Track" with "@perry-rylance/midi" faded alongside it), for
+disambiguating same-named exports from different packages. tsserver *does*
+have a humanized module specifier field (`sourceDisplay`), but only on the
+`completionEntryDetails` response - not on the initial `completionInfo`
+entries, and resolving every visible row just to label it would mean an
+extra tsserver round trip per item shown, not just the one item the user
+highlights (`#resolveCompletionItem`'s already-lazy pattern, see above,
+doesn't fit here - VS Code shows this for *every* row up front). Instead,
+`packageNameFromSource()` (`src/tsServerCompletions.ts`) derives it directly
+from the entry's own `source` field, which *is* present up front - a raw
+filesystem path (e.g. ".../node_modules/@perry-rylance/midi/dist/Track") -
+by extracting the segment right after the last `node_modules/`, handling
+both scoped (`@scope/name`) and plain package names, and nested
+`node_modules` (rare, but takes the innermost/last one correctly).
+
+Wired into Monaco by giving the item a `CompletionItemLabel` object
+(`{label, description}`) instead of a plain string - confirmed by reading
+Monaco's own suggest-widget renderer source (`suggestWidgetRenderer.js`)
+that `label.description` is what renders into `.details-label`, dimmed, on
+the right side of the row (`label.detail` is a different field - renders
+immediately after the name with no spacing, meant for signatures/type
+annotations, not this).
+
+**e2e test note:** giving an item a `{label, description}` object changes
+its accessible name (confirmed live: aria-label becomes `"Track,
+@perry-rylance/midi"`, not just `"Track"`), which broke the previous auto-import
+test's `getByRole("option", { name: "Track", exact: true })` locator - had
+to update it to match the full new label. Doubles as a second confirmation
+the package annotation is actually present, alongside a direct check on the
+visible `.details-label` element's text.
+
 ## New problem found during verification: cross-test WebContainer session sharing breaks tsserver
 
 **Status:** Open, not yet fixed.
