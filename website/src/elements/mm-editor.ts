@@ -43,10 +43,7 @@ const MODEL_URI = `file://${WORKDIR_FILE_PATH}`;
 // Never shown to the user - see the "warming up" comment in #connectTsServer.
 const WARMUP_FILE_PATH = `${WORKDIR_ROOT_PATH}/.warmup.ts`;
 
-const DEFAULT_SOURCE = `import { File } from "@perry-rylance/midi";
-
-export default new File();
-`;
+import DEFAULT_SOURCE from "../default.program?raw";
 
 const NO_DEFAULT_EXPORT_MESSAGE = "No default export found. Expected a default export of type File from \"@perry-rylance/midi\".";
 
@@ -129,6 +126,10 @@ export class MmEditorElement extends HTMLElement {
         this.#checkDefaultExport();
 
         void this.#connectTsServer();
+    }
+
+    getSource(): string {
+        return this.#model.getValue();
     }
 
     #checkDefaultExport(): void {

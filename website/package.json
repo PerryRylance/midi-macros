@@ -17,6 +17,7 @@
     "lucide": "^1.33.0",
     "monaco-editor": "0.33.0",
     "monaco-editor-workers": "0.33.0",
+    "spessasynth_lib": "^4.3.14",
     "split.js": "^1.6.5",
     "typescript": "^5.9.3"
   },

@@ -1,5 +1,5 @@
 import { SOUND_FONTS, loadSoundfont } from "../soundfont";
-import { dispatchSoundfontLoaded } from "../events";
+import { dispatchSoundfontLoaded, dispatchSoundfontLoading } from "../events";
 
 export class MmSoundfontSelectElement extends HTMLElement {
     #status: HTMLParagraphElement;
@@ -43,6 +43,7 @@ export class MmSoundfontSelectElement extends HTMLElement {
         if (!font) return;
 
         this.#status.textContent = "Loading...";
+        dispatchSoundfontLoading();
 
         try {
             const buffer = await loadSoundfont(font.url);

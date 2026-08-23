@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import spessaWorklet from "./vite-plugin-spessa-worklet";
 
 // WebContainers require the page to be cross-origin isolated (SharedArrayBuffer).
 const crossOriginIsolationHeaders = {
@@ -7,6 +8,7 @@ const crossOriginIsolationHeaders = {
 };
 
 export default defineConfig({
+    plugins: [spessaWorklet()],
     server: { headers: crossOriginIsolationHeaders },
     preview: { headers: crossOriginIsolationHeaders }
 });
