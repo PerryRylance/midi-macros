@@ -144,19 +144,6 @@ mm-tabs
 {
     background-color: $dark-background;
 
-    &#build-tabs
-    {
-        padding: .5rem 0;
-    }
-}
-
-mm-sidebar
-{
-    width: 25vw;
-
-    background-color: $dark-background;
-    color: $light-text;
-
     & > nav > button
     {
         background: none;
@@ -169,6 +156,14 @@ mm-sidebar
             text-decoration: underline;
         }
     }
+}
+
+mm-sidebar
+{
+    width: 25vw;
+
+    background-color: $dark-background;
+    color: $light-text;
 
     & > section
     {
@@ -189,4 +184,21 @@ mm-package-terminal
 
     background-color: $dark-background;
     color: $light-text;
+}
+
+#build-tabs
+{
+    background-color: black;
+
+    & > nav
+    {
+        background-color: $dark-background;
+    }
+}
+
+#build-output > pre
+{
+    margin: 0;
+    background-color: black;
+    color: white;
 }
