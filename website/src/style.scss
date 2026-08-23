@@ -140,6 +140,16 @@ p#editor-status
     }
 }
 
+mm-tabs
+{
+    background-color: $dark-background;
+
+    &#build-tabs
+    {
+        padding: .5rem 0;
+    }
+}
+
 mm-sidebar
 {
     width: 25vw;

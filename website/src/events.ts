@@ -25,3 +25,16 @@ export interface SoundfontLoadedDetail {
 export function dispatchSoundfontLoaded(detail: SoundfontLoadedDetail): void {
     document.dispatchEvent(new CustomEvent<SoundfontLoadedDetail>(SOUNDFONT_LOADED_EVENT, { detail }));
 }
+
+export const BUILD_OUTPUT_EVENT = "mm-build-output";
+
+export interface BuildOutputDetail {
+    status: "success" | "error";
+    message: string;
+}
+
+// Lets the playback engine report the result of rendering the editor's
+// program to the "Output" tab, without it needing to know that tab exists.
+export function dispatchBuildOutput(detail: BuildOutputDetail): void {
+    document.dispatchEvent(new CustomEvent<BuildOutputDetail>(BUILD_OUTPUT_EVENT, { detail }));
+}

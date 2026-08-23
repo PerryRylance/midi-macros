@@ -23,6 +23,16 @@ export class MmPackageTerminalElement extends HTMLElement {
         }, 0);
     };
 
+    constructor() {
+        super();
+
+        // Custom elements default to display:inline, which reports 0 for
+        // clientWidth/clientHeight - FitAddon.fit() reads those directly, so
+        // without this the terminal renders at ~0 rows/cols regardless of
+        // how much visual space its container actually gives it.
+        this.style.display = "block";
+    }
+
     connectedCallback(): void {
         this.#terminal = new Terminal({ convertEol: true, disableStdin: true });
         this.#fitAddon = new FitAddon();

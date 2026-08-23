@@ -14,7 +14,14 @@
         <div class="split vertical">
             <div class="split horizontal">
                 <mm-editor id="editor"></mm-editor>
-                <mm-package-terminal id="terminal"></mm-package-terminal>
+                <mm-tabs id="build-tabs">
+                    <section id="tab-terminal" data-tab-label="Terminal">
+                        <mm-package-terminal id="terminal"></mm-package-terminal>
+                    </section>
+                    <section id="tab-output" data-tab-label="Output">
+                        <mm-build-output id="build-output"></mm-build-output>
+                    </section>
+                </mm-tabs>
             </div>
             <mm-sidebar>
                 <section id="tab-welcome" data-tab-label="Welcome">

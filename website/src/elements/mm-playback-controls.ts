@@ -1,12 +1,20 @@
 import { createElement, Pause, Play, Square } from "lucide";
 import { bootWebContainer } from "../webcontainer";
 import { startTsServer } from "../tsServer";
-import { evaluateProgram, ProgramEvaluationError } from "../programEvaluator";
-import { hasDefaultExport } from "../defaultExport";
-import { SOUNDFONT_LOADED_EVENT, SOUNDFONT_LOADING_EVENT, type SoundfontLoadedDetail } from "../events";
+import { evaluateProgram } from "../programEvaluator";
+import {
+    dispatchBuildOutput,
+    SOUNDFONT_LOADED_EVENT,
+    SOUNDFONT_LOADING_EVENT,
+    type SoundfontLoadedDetail
+} from "../events";
 import { SpessaSynthOutput } from "../playback/SpessaSynthOutput";
 import type { PlaybackOutput } from "../playback/PlaybackOutput";
 import type { MmEditorElement } from "./mm-editor";
+
+function toErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
 
 function createIconButton(id: string, label: string, icon: typeof Play): HTMLButtonElement {
     const button = document.createElement("button");
@@ -78,11 +86,6 @@ export class MmPlaybackControlsElement extends HTMLElement {
 
         const source = editor.getSource();
 
-        if (!hasDefaultExport(source)) {
-            this.#status.textContent = "No default export.";
-            return;
-        }
-
         this.#setDisabled(true);
         this.#status.textContent = "Rendering...";
 
@@ -97,8 +100,10 @@ export class MmPlaybackControlsElement extends HTMLElement {
             this.#output.play();
 
             this.#status.textContent = "Playing.";
+            dispatchBuildOutput({ status: "success", message: "Build successful." });
         } catch (error) {
-            this.#status.textContent = error instanceof ProgramEvaluationError ? error.message : "Error.";
+            this.#status.textContent = "Error.";
+            dispatchBuildOutput({ status: "error", message: toErrorMessage(error) });
         } finally {
             this.#setDisabled(false);
         }

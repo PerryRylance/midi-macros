@@ -91,7 +91,6 @@ export class MmEditorElement extends HTMLElement {
 
         this.style.display = "flex";
         this.style.flexDirection = "column";
-        this.style.height = "100%";
 
         this.append(this.#host, this.#status);
 

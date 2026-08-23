@@ -38,6 +38,6 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@perry-rylance/midi": "^1.2.1"
+    "@perry-rylance/midi": "^1.2.2"
   }
 }
