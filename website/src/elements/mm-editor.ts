@@ -86,10 +86,17 @@ export class MmEditorElement extends HTMLElement {
 
         this.#host = document.createElement("div");
         // Monaco needs an explicitly sized host to render into - this is
-        // functional (a zero-height box is unusable), not decorative.
-        this.#host.style.height = "480px";
+        // functional (a zero-height box is unusable), not decorative. The
+        // host fills whatever space the (possibly resizable) parent gives
+        // this element; automaticLayout below keeps Monaco in sync with it.
+        this.#host.style.flex = "1";
+        this.#host.style.minHeight = "0";
 
-        this.append(this.#status, this.#host);
+        this.style.display = "flex";
+        this.style.flexDirection = "column";
+        this.style.height = "100%";
+
+        this.append(this.#host, this.#status);
 
         this.#model = monaco.editor.createModel(DEFAULT_SOURCE, "typescript", monaco.Uri.parse(MODEL_URI));
         this.#model.onDidChangeContent(() => {
@@ -118,7 +125,7 @@ export class MmEditorElement extends HTMLElement {
     }
 
     connectedCallback(): void {
-        monaco.editor.create(this.#host, { model: this.#model });
+        monaco.editor.create(this.#host, { model: this.#model, automaticLayout: true });
         this.#checkDefaultExport();
 
         void this.#connectTsServer();

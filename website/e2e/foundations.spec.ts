@@ -2,8 +2,16 @@ import { test, expect } from "@playwright/test";
 
 const DEFAULT_DEPENDENCIES = ["@perry-rylance/midi", "@perry-rylance/midi-macros"];
 
+// mm-package-panel now lives inside the sidebar's "Packages" tab, hidden by
+// default (Welcome is the default tab) - its own boot/install logic runs
+// regardless of visibility, but interacting with its form needs the tab open.
+async function openPackagesTab(page: import("@playwright/test").Page): Promise<void> {
+    await page.locator("#tab-button-packages").click();
+}
+
 test("boots a WebContainer and installs an npm package", async ({ page }) => {
     await page.goto("/");
+    await openPackagesTab(page);
 
     await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
 
@@ -16,6 +24,7 @@ test("boots a WebContainer and installs an npm package", async ({ page }) => {
 
 test("shows an error for an invalid package name", async ({ page }) => {
     await page.goto("/");
+    await openPackagesTab(page);
 
     await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
 
@@ -28,6 +37,7 @@ test("shows an error for an invalid package name", async ({ page }) => {
 
 test("lists an installed package and can remove it", async ({ page }) => {
     await page.goto("/");
+    await openPackagesTab(page);
 
     await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
     await expect(page.locator("#package-list li")).toHaveCount(DEFAULT_DEPENDENCIES.length);
@@ -47,6 +57,7 @@ test("lists an installed package and can remove it", async ({ page }) => {
 
 test("disables remove buttons while the terminal is busy", async ({ page }) => {
     await page.goto("/");
+    await openPackagesTab(page);
 
     await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
 
@@ -67,6 +78,7 @@ test("disables remove buttons while the terminal is busy", async ({ page }) => {
 
 test("preinstalls the default dependencies without a remove button", async ({ page }) => {
     await page.goto("/");
+    await openPackagesTab(page);
 
     await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
 

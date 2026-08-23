@@ -1,0 +1,110 @@
+$dark-text: #000000;
+$dark-background: #306082;
+$light-text: #ffffff;
+$light-background: #ffffff;
+
+html, body
+{
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body, button
+{
+    font-family: Segoe UI,Frutiger,Frutiger Linotype,Dejavu Sans,Helvetica Neue,Arial,sans-serif;
+}
+
+#wrapper
+{
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+p#editor-status
+{
+    margin: 0;
+}
+
+.split
+{
+    display: flex;
+    min-width: 0;
+    min-height: 0;
+
+    &.horizontal
+    {
+        flex-direction: column;
+        flex: 1;
+    }
+
+    &.vertical
+    {
+        flex-direction: row;
+        flex: 1;
+    }
+
+    > *
+    {
+        min-width: 0;
+        min-height: 0;
+        overflow: auto;
+    }
+}
+
+.gutter
+{
+    &.gutter-horizontal
+    {
+        cursor: col-resize;
+    }
+
+    &.gutter-vertical
+    {
+        cursor: row-resize;
+    }
+}
+
+mm-sidebar
+{
+    width: 25vw;
+
+    background-color: $dark-background;
+    color: $light-text;
+
+    & > nav > button
+    {
+        cursor: pointer;
+
+        background: none;
+        border: none;
+
+        color: $light-text;
+
+        &[aria-selected="true"]
+        {
+            text-decoration: underline;
+        }
+    }
+
+    & > section
+    {
+        padding: .5rem;
+    }
+}
+
+mm-package-terminal
+{
+    height: 5lh;
+    background-color: black;
+}
+
+#toolbar
+{
+    margin: 0;
+    padding: .5rem;
+
+    background-color: $dark-background;
+    color: $light-text;
+}

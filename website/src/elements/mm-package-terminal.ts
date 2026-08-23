@@ -1,8 +1,11 @@
 import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
 import { TERMINAL_OUTPUT_EVENT } from "../events";
 
-export class MmTerminalElement extends HTMLElement {
+export class MmPackageTerminalElement extends HTMLElement {
     #terminal: Terminal | undefined;
+    #fitAddon: FitAddon | undefined;
+    #resizeObserver: ResizeObserver | undefined;
     #pending = "";
     #flushTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -22,7 +25,14 @@ export class MmTerminalElement extends HTMLElement {
 
     connectedCallback(): void {
         this.#terminal = new Terminal({ convertEol: true, disableStdin: true });
+        this.#fitAddon = new FitAddon();
+        this.#terminal.loadAddon(this.#fitAddon);
+
         this.#terminal.open(this);
+        this.#fitAddon.fit();
+
+        this.#resizeObserver = new ResizeObserver(() => this.#fitAddon?.fit());
+        this.#resizeObserver.observe(this);
 
         document.addEventListener(TERMINAL_OUTPUT_EVENT, this.#onOutput);
     }
@@ -30,9 +40,13 @@ export class MmTerminalElement extends HTMLElement {
     disconnectedCallback(): void {
         document.removeEventListener(TERMINAL_OUTPUT_EVENT, this.#onOutput);
 
+        this.#resizeObserver?.disconnect();
+        this.#resizeObserver = undefined;
+
         this.#terminal?.dispose();
         this.#terminal = undefined;
+        this.#fitAddon = undefined;
     }
 }
 
-customElements.define("mm-terminal", MmTerminalElement);
+customElements.define("mm-package-terminal", MmPackageTerminalElement);

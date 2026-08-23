@@ -4,6 +4,18 @@
 testing - this only shows up as two failing Playwright tests so far. Logged here to
 revisit rather than continuing to sink time into it now.
 
+**Naming note:** this section predates the "Side bar" component split -
+`mm-package-manager.ts`/`MmPackageManagerElement` is now
+`mm-package-panel.ts`/`MmPackagePanelElement` (moved into the sidebar's
+"Packages" tab), and `mm-terminal.ts`/`MmTerminalElement` is now
+`mm-package-terminal.ts`/`MmPackageTerminalElement` (repositioned directly
+below the editor). Below, read those old names as referring to their new
+files/classes - the underlying logic is unchanged. The full e2e suite passed
+17/17 immediately after that split, including this section's two previously
+flaky tests, though given this bug was already known to be intermittent and
+hard to reproduce reliably, that's not being logged here as a fix - just an
+observation for whoever picks this up next.
+
 **Not to be confused with:** a separate, much more serious, still-open bug where
 the language server's `initialize` request never gets a response at all - see
 the second section of this document, below. *This first section* is specifically

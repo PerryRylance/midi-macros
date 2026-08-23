@@ -10,7 +10,7 @@ import {
 } from "../webcontainer";
 import { dispatchTerminalOutput } from "../events";
 
-export class MmPackageManagerElement extends HTMLElement {
+export class MmPackagePanelElement extends HTMLElement {
     #container: WebContainer | undefined;
     #status: HTMLParagraphElement;
     #input: HTMLInputElement;
@@ -156,4 +156,4 @@ export class MmPackageManagerElement extends HTMLElement {
     }
 }
 
-customElements.define("mm-package-manager", MmPackageManagerElement);
+customElements.define("mm-package-panel", MmPackagePanelElement);
