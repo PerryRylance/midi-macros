@@ -13,6 +13,8 @@
   "scripts": {
     "dev": "vitest",
     "test": "tsc && vitest run",
+    "build": "npm run test",
+    "prepublishOnly": "npm run build",
     "examples": "npx tsx examples/generate.ts && npx vite --config examples/vite.config.mts"
   },
   "repository": {
