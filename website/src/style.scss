@@ -15,6 +15,11 @@ body, button
     font-family: Segoe UI,Frutiger,Frutiger Linotype,Dejavu Sans,Helvetica Neue,Arial,sans-serif;
 }
 
+body
+{
+    overflow: hidden;
+}
+
 #wrapper
 {
     height: 100vh;
@@ -30,8 +35,8 @@ p#editor-status
 .split
 {
     display: flex;
-    min-width: 0;
-    min-height: 0;
+    // min-width: 0;
+    // min-height: 0;
 
     &.horizontal
     {
@@ -49,7 +54,7 @@ p#editor-status
     {
         min-width: 0;
         min-height: 0;
-        overflow: auto;
+        // overflow: auto;
     }
 }
 
