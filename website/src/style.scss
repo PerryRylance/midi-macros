@@ -83,8 +83,8 @@ p#editor-status
 .split
 {
     display: flex;
-    // min-width: 0;
-    // min-height: 0;
+    min-width: 0;
+    min-height: 0;
 
     &.horizontal
     {
@@ -102,7 +102,7 @@ p#editor-status
     {
         min-width: 0;
         min-height: 0;
-        // overflow: auto;
+        overflow: auto;
     }
 }
 
@@ -158,11 +158,9 @@ mm-tabs
     }
 }
 
-mm-sidebar
+#sidebar
 {
     width: 25vw;
-
-    background-color: $dark-background;
     color: $light-text;
 
     & > section

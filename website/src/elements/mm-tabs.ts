@@ -6,8 +6,8 @@ function slugify(label: string): string {
 
 // A generic tab-switcher: any light-DOM child marked with data-tab-label
 // becomes a tab, labelled and toggled via that attribute - content-agnostic,
-// so callers compose whatever markup they like as tabs (see mm-sidebar.ts,
-// which is this same behaviour under its own tag name) without this element
+// so callers compose whatever markup they like as tabs (the sidebar and the
+// bottom Terminal/Output pane both use this same tag) without this element
 // needing to know about it.
 export class MmTabsElement extends HTMLElement {
     #nav = document.createElement("nav");

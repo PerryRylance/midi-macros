@@ -5,6 +5,5 @@ import "./elements/mm-package-terminal";
 import "./elements/mm-package-panel";
 import "./elements/mm-build-output";
 import "./elements/mm-editor";
-import "./elements/mm-sidebar";
 import "./elements/mm-playback-controls";
 import "./elements/mm-soundfont-select";
