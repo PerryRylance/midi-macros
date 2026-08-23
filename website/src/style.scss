@@ -55,14 +55,35 @@ p#editor-status
 
 .gutter
 {
+    background-color: #3f3f74;
+    display: flex;
+
     &.gutter-horizontal
     {
+        align-items: center;
         cursor: col-resize;
+
+        svg
+        {
+            width: 6px;
+        }
     }
 
     &.gutter-vertical
     {
+        justify-content: center;
         cursor: row-resize;
+
+        svg
+        {
+            height: 6px;
+        }
+    }
+
+    svg
+    {
+        fill: white;
+        color: white;
     }
 }
 
