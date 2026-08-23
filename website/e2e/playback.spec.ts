@@ -88,13 +88,36 @@ test("shows a runtime ReferenceError from the program in the build output", asyn
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, "breaking();");
+    // Needs a valid default export so it's the runtime call to the
+    // undefined `breaking` that fails, not the (now separately tested)
+    // missing-default-export check.
+    await replaceEditorContent(
+        page,
+        'import { File } from "@perry-rylance/midi";\nbreaking();\nexport default new File();'
+    );
 
     await controls.getByRole("button", { name: "Play" }).click();
 
     await expect(page.locator("#build-output-message")).toContainText("ReferenceError: breaking is not defined", {
         timeout: 60_000
     });
+});
+
+test("shows 'No default export' in the build output for a program with no default export", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    const output = page.locator("#build-output-message");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    // No default export at all - this is a real TypeScript compiler
+    // diagnostic (see programEvaluator.ts), not a check we run ourselves.
+    await replaceEditorContent(page, "export const x = 1;");
+
+    await controls.getByRole("button", { name: "Play" }).click();
+
+    await expect(output).toContainText("No default export", { timeout: 60_000 });
 });
 
 test("shows a success message in the build output for a program that builds cleanly", async ({ page }) => {
@@ -117,6 +140,48 @@ test("shows a success message in the build output for a program that builds clea
     await expect(output).toContainText("Playback started.", { timeout: 60_000 });
 });
 
+test("starts playback with Ctrl+Enter", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    const output = page.locator("#build-output-message");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await page.keyboard.press("Control+Enter");
+
+    await expect(output).toContainText("Rendering audio...");
+    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+});
+
+test("restarts playback when Ctrl+Enter is pressed again while already playing", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    const output = page.locator("#build-output-message");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await page.keyboard.press("Control+Enter");
+    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+
+    await page.keyboard.press("Control+Enter");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+});
+
+test("stops playback with Alt+Enter", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    const output = page.locator("#build-output-message");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await page.keyboard.press("Control+Enter");
+    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+
+    await page.keyboard.press("Alt+Enter");
+    await expect(output).toContainText("Stopped.");
+});
+
 test("clears the build output when Play is pressed again", async ({ page }) => {
     await page.goto("/");
 
@@ -125,7 +190,10 @@ test("clears the build output when Play is pressed again", async ({ page }) => {
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, "breaking();");
+    await replaceEditorContent(
+        page,
+        'import { File } from "@perry-rylance/midi";\nbreaking();\nexport default new File();'
+    );
     await controls.getByRole("button", { name: "Play" }).click();
     await expect(output).toContainText("ReferenceError: breaking is not defined", { timeout: 60_000 });
 

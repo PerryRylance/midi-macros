@@ -20,7 +20,6 @@ import {
     type TsServerCompletionInfo
 } from "../tsServerCompletions";
 import { toSignatureHelp, type TsServerSignatureHelpItems } from "../tsServerSignatureHelp";
-import { hasDefaultExport } from "../defaultExport";
 
 // The worker scripts actually live at "dist/workers/*.js" (see
 // public/dist/workers) - passing just "dist" here builds a URL one directory
@@ -29,7 +28,6 @@ import { hasDefaultExport } from "../defaultExport";
 // "Unexpected token '<'" from the leading "<!doctype html>".
 buildWorkerDefinition("dist/workers", new URL("", window.location.href).href, false);
 
-const DEFAULT_EXPORT_MARKER_OWNER = "midi-macros-default-export";
 const SYNTAX_MARKER_OWNER = "tsserver-syntax";
 const SEMANTIC_MARKER_OWNER = "tsserver-semantic";
 const SUGGESTION_MARKER_OWNER = "tsserver-suggestion";
@@ -44,8 +42,6 @@ const MODEL_URI = `file://${WORKDIR_FILE_PATH}`;
 const WARMUP_FILE_PATH = `${WORKDIR_ROOT_PATH}/.warmup.ts`;
 
 import DEFAULT_SOURCE from "../default.program?raw";
-
-const NO_DEFAULT_EXPORT_MESSAGE = "No default export found. Expected a default export of type File from \"@perry-rylance/midi\".";
 
 // tsserver's own debounce for diagnostics is per-request (the `delay` field
 // on `geterr`), not per-keystroke - this avoids flooding it with a fresh
@@ -70,16 +66,12 @@ interface AutoImportCompletionItem extends monaco.languages.CompletionItem {
 
 export class MmEditorElement extends HTMLElement {
     #model: monaco.editor.ITextModel;
-    #status: HTMLParagraphElement;
     #host: HTMLDivElement;
     #tsServerClient: TsServerClient | undefined;
     #syncTimer: ReturnType<typeof setTimeout> | undefined;
 
     constructor() {
         super();
-
-        this.#status = document.createElement("p");
-        this.#status.id = "editor-status";
 
         this.#host = document.createElement("div");
         // Monaco needs an explicitly sized host to render into - this is
@@ -92,13 +84,10 @@ export class MmEditorElement extends HTMLElement {
         this.style.display = "flex";
         this.style.flexDirection = "column";
 
-        this.append(this.#host, this.#status);
+        this.append(this.#host);
 
         this.#model = monaco.editor.createModel(DEFAULT_SOURCE, "typescript", monaco.Uri.parse(MODEL_URI));
-        this.#model.onDidChangeContent(() => {
-            this.#checkDefaultExport();
-            this.#scheduleDocumentSync();
-        });
+        this.#model.onDidChangeContent(() => this.#scheduleDocumentSync());
 
         monaco.languages.registerHoverProvider("typescript", {
             provideHover: (model, position) => this.#provideHover(model, position)
@@ -122,31 +111,12 @@ export class MmEditorElement extends HTMLElement {
 
     connectedCallback(): void {
         monaco.editor.create(this.#host, { model: this.#model, automaticLayout: true });
-        this.#checkDefaultExport();
 
         void this.#connectTsServer();
     }
 
     getSource(): string {
         return this.#model.getValue();
-    }
-
-    #checkDefaultExport(): void {
-        const missingDefaultExport = !hasDefaultExport(this.#model.getValue());
-
-        const markers: monaco.editor.IMarkerData[] = missingDefaultExport
-            ? [{
-                severity: monaco.MarkerSeverity.Error,
-                message: NO_DEFAULT_EXPORT_MESSAGE,
-                startLineNumber: 1,
-                startColumn: 1,
-                endLineNumber: 1,
-                endColumn: 1
-            }]
-            : [];
-
-        monaco.editor.setModelMarkers(this.#model, DEFAULT_EXPORT_MARKER_OWNER, markers);
-        this.#status.textContent = missingDefaultExport ? NO_DEFAULT_EXPORT_MESSAGE : "";
     }
 
     async #connectTsServer(): Promise<void> {

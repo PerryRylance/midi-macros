@@ -35,9 +35,29 @@ describe("evaluateProgram", () => {
 
         await evaluateProgram(container, "export default 1;");
 
-        const [runnerPath, runnerScript] = writeFile.mock.calls.find(call => call[0] !== "program.ts")!;
+        const [runnerPath, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-program.cjs")!;
         expect(spawn).toHaveBeenCalledWith("node", [runnerPath]);
         expect(runnerScript).toContain("toArrayBuffer");
+    });
+
+    it("writes an entry file that type-checks the program's default export against File", async () => {
+        const { container, writeFile } = createFakeContainer();
+
+        await evaluateProgram(container, "export default 1;");
+
+        const [, entryScript] = writeFile.mock.calls.find(call => call[0] === "entry.ts")!;
+        expect(entryScript).toContain('from "./program"');
+        expect(entryScript).toContain('from "@perry-rylance/midi"');
+    });
+
+    it("relies on a real TypeScript diagnostic (not an AST check of its own) to catch a missing default export", async () => {
+        const { container, writeFile } = createFakeContainer();
+
+        await evaluateProgram(container, "export default 1;");
+
+        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-program.cjs")!;
+        expect(runnerScript).toContain("getSemanticDiagnostics");
+        expect(runnerScript).toContain("No default export.");
     });
 
     it("resolves with the bytes read back from output.mid on success", async () => {

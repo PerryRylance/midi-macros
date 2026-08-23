@@ -48,6 +48,27 @@ export class MmPlaybackControlsElement extends HTMLElement {
         this.#setDisabled(false);
     };
 
+    // Ctrl+Enter starts playback (or restarts it, if already playing - #handlePlay
+    // always re-renders from scratch regardless of current state). Alt+Enter
+    // stops it. Registered on document with capture so it fires regardless of
+    // focus (e.g. while the Monaco editor has it) and ahead of any of Monaco's
+    // own keybindings for the same combination.
+    #onKeyDown = (event: KeyboardEvent): void => {
+        if (event.key !== "Enter") return;
+
+        if (event.ctrlKey && !event.altKey) {
+            if (this.#playButton.disabled) return;
+
+            event.preventDefault();
+            void this.#handlePlay();
+        } else if (event.altKey && !event.ctrlKey) {
+            if (this.#stopButton.disabled) return;
+
+            event.preventDefault();
+            this.#handleStop();
+        }
+    };
+
     constructor() {
         super();
 
@@ -67,11 +88,13 @@ export class MmPlaybackControlsElement extends HTMLElement {
     connectedCallback(): void {
         document.addEventListener(SOUNDFONT_LOADING_EVENT, this.#onSoundfontLoading);
         document.addEventListener(SOUNDFONT_LOADED_EVENT, this.#onSoundfontLoaded);
+        document.addEventListener("keydown", this.#onKeyDown, true);
     }
 
     disconnectedCallback(): void {
         document.removeEventListener(SOUNDFONT_LOADING_EVENT, this.#onSoundfontLoading);
         document.removeEventListener(SOUNDFONT_LOADED_EVENT, this.#onSoundfontLoaded);
+        document.removeEventListener("keydown", this.#onKeyDown, true);
     }
 
     #setDisabled(disabled: boolean): void {

@@ -1,7 +1,5 @@
 import { test, expect } from "@playwright/test";
 
-const NO_DEFAULT_EXPORT_MESSAGE = "No default export found. Expected a default export of type File from \"@perry-rylance/midi\".";
-
 // Scoped to `[data-uri]` because Monaco's rename contribution (loaded via
 // `editor.all.js`) creates its own nested `.monaco-editor` widget for the
 // rename input box, which would otherwise make ".monaco-editor" ambiguous.
@@ -15,39 +13,17 @@ async function replaceEditorContent(page: import("@playwright/test").Page, text:
     await page.keyboard.type(text);
 }
 
-test("editor loads with the default source and no default-export error", async ({ page }) => {
+test("editor loads with the default source", async ({ page }) => {
     await page.goto("/");
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
     await expect(editorRoot(page)).toContainText("@perry-rylance/midi");
-    await expect(page.locator("#editor-status")).toHaveText("");
 });
 
-test("shows a custom error when the default export is missing", async ({ page }) => {
-    await page.goto("/");
-
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, "export const x = 1;");
-
-    await expect(page.locator("#editor-status")).toHaveText(NO_DEFAULT_EXPORT_MESSAGE, { timeout: 10_000 });
-});
-
-test("clears the custom error once a default export is added back", async ({ page }) => {
-    await page.goto("/");
-
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, "export const x = 1;");
-    await expect(page.locator("#editor-status")).toHaveText(NO_DEFAULT_EXPORT_MESSAGE, { timeout: 10_000 });
-
-    await replaceEditorContent(page, "export default 1;");
-    await expect(page.locator("#editor-status")).toHaveText("", { timeout: 10_000 });
-});
-
-// The content here deliberately keeps a valid default export so our OWN
-// hasDefaultExport() check never fires its own error marker - `.squiggly-error`
-// picks up ANY error-severity marker regardless of which "owner" set it, so an
-// earlier version of this test accidentally passed by matching our own
-// client-side marker instead of a real language-server diagnostic.
+// A missing default export is no longer flagged by our own client-side
+// check - see programEvaluator.ts and e2e/playback.spec.ts, where it's now a
+// real TypeScript compiler diagnostic surfaced through the build output when
+// the program is actually run, rather than a live Monaco marker.
 test("shows a real diagnostic from tsserver", async ({ page }) => {
     await page.goto("/");
 
@@ -57,7 +33,6 @@ test("shows a real diagnostic from tsserver", async ({ page }) => {
         'import { File } from "@perry-rylance/midi";\nconst x: number = "oops";\nexport default new File();'
     );
 
-    await expect(page.locator("#editor-status")).toHaveText("");
     await expect(page.locator(".squiggly-error")).toHaveCount(1, { timeout: 60_000 });
 });
 
@@ -69,8 +44,6 @@ test("shows a hover popup with type information for a regular (non-error) token"
         page,
         'import { File } from "@perry-rylance/midi";\nconst answer = 42;\nexport default new File();'
     );
-
-    await expect(page.locator("#editor-status")).toHaveText("");
 
     // A synthetic mouse `.hover()` doesn't reliably drive Monaco's own
     // mouse-target tracking under Playwright - clicking to position the
@@ -100,8 +73,6 @@ test("shows member auto-complete after typing a dot", async ({ page }) => {
         page,
         'import { File } from "@perry-rylance/midi";\n\nconst file = new File();\n\nfile.\n\nexport default file;'
     );
-
-    await expect(page.locator("#editor-status")).toHaveText("");
 
     // Click the line then jump to its end, so the caret lands right after
     // the dot rather than wherever the click's pixel position happens to map to.
