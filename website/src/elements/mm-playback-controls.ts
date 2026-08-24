@@ -84,6 +84,11 @@ export class MmPlaybackControlsElement extends HTMLElement {
         this.#pauseButton.addEventListener("click", () => this.#handlePause());
         this.#stopButton.addEventListener("click", () => this.#handleStop());
 
+        // Only the highlight state, not a "Stopped." message or a call to
+        // output.stop() - the song already finished on its own here, the
+        // user didn't press Stop.
+        this.#output.onEnded(() => this.#resetHighlightState());
+
         this.#setDisabled(true);
 
         this.append(this.#playButton, this.#pauseButton, this.#stopButton);
@@ -157,11 +162,17 @@ export class MmPlaybackControlsElement extends HTMLElement {
         this.#output.stop();
         dispatchBuildOutput({ status: "info", message: "Stopped." });
 
-        // Stops the highlight loop from reacting to it too - getCurrentTime()
-        // can briefly still report a stale (pre-stop) value for a frame or
-        // two, since it round-trips through an AudioWorklet message, which
-        // would otherwise re-derive and re-apply a highlight right after
-        // this clears it.
+        this.#resetHighlightState();
+    }
+
+    // Stops the highlight loop from reacting further and clears whatever's
+    // currently highlighted - shared by the user pressing Stop and the song
+    // ending on its own. Setting #isPlaying false matters even here:
+    // getCurrentTime() can briefly still report a stale (pre-stop) value for
+    // a frame or two, since it round-trips through an AudioWorklet message,
+    // which would otherwise re-derive and re-apply a highlight right after
+    // this clears it.
+    #resetHighlightState(): void {
         this.#isPlaying = false;
         document.querySelector<MmEditorElement>("#editor")?.clearHighlights();
         this.#lastHighlightMs = 0;

@@ -8,6 +8,7 @@ export class SpessaSynthOutput implements PlaybackOutput {
     #synth: WorkletSynthesizer | undefined;
     #sequencer: Sequencer | undefined;
     #currentSoundBankId: string | undefined;
+    #onEndedCallback: (() => void) | undefined;
 
     async #ensureReady(): Promise<{ synth: WorkletSynthesizer; sequencer: Sequencer }> {
         if (!this.#context) {
@@ -18,6 +19,7 @@ export class SpessaSynthOutput implements PlaybackOutput {
             this.#synth.connect(this.#context.destination);
 
             this.#sequencer = new Sequencer(this.#synth);
+            this.#sequencer.eventHandler.addEvent("songEnded", "ended", () => this.#onEndedCallback?.());
         }
 
         // Browsers only allow an AudioContext to run following a user
@@ -64,5 +66,9 @@ export class SpessaSynthOutput implements PlaybackOutput {
 
     getCurrentTime(): number {
         return (this.#sequencer?.currentTime ?? 0) * 1000;
+    }
+
+    onEnded(callback: () => void): void {
+        this.#onEndedCallback = callback;
     }
 }

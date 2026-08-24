@@ -51,6 +51,34 @@ test("highlights the MIDI event constructor currently playing", async ({ page })
     expect(text).not.toContain("key(60)");
 });
 
+// Short (480 ticks = ~500ms after the NoteOn), so the song ends on its own
+// quickly without needing to press Stop.
+const SHORT_PROGRAM =
+    'import { File, Track, NoteOnEvent, NoteOffEvent } from "@perry-rylance/midi";\n\n' +
+    "export default new File().tracks([\n" +
+    "    new Track().events([\n" +
+    "        new NoteOnEvent().key(60),\n" +
+    "        new NoteOffEvent().delta(480).key(60)\n" +
+    "    ])\n" +
+    "]);";
+
+test("clears highlights once the song finishes playing on its own", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await replaceEditorContent(page, SHORT_PROGRAM);
+
+    await controls.getByRole("button", { name: "Play" }).click();
+
+    await expect(page.locator(".mm-highlighted-event").first()).toBeVisible({ timeout: 60_000 });
+
+    // Never pressing Stop - just waiting for the short song to end on its own.
+    await expect(page.locator(".mm-highlighted-event")).toHaveCount(0, { timeout: 10_000 });
+});
+
 test("clears highlights when Stop is pressed", async ({ page }) => {
     await page.goto("/");
 

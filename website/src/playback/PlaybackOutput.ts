@@ -12,4 +12,8 @@ export interface PlaybackOutput {
     // highlighting) to playback - an output with nothing loaded/playing yet
     // just returns 0.
     getCurrentTime(): number;
+    // Called when the loaded song finishes playing on its own (not when the
+    // user presses Stop, which callers already know about directly) - an
+    // output that can't report this simply never calls back.
+    onEnded(callback: () => void): void;
 }
