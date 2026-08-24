@@ -8,4 +8,8 @@ export interface PlaybackOutput {
     play(): void;
     pause(): void;
     stop(): void;
+    // Current playback position in milliseconds, for syncing UI (e.g. editor
+    // highlighting) to playback - an output with nothing loaded/playing yet
+    // just returns 0.
+    getCurrentTime(): number;
 }

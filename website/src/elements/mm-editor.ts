@@ -64,9 +64,18 @@ interface AutoImportCompletionItem extends monaco.languages.CompletionItem {
     tsAutoImportEntry?: { name: string; source?: string; data?: unknown };
 }
 
+export interface HighlightRange {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+}
+
 export class MmEditorElement extends HTMLElement {
     #model: monaco.editor.ITextModel;
     #host: HTMLDivElement;
+    #editorInstance: monaco.editor.IStandaloneCodeEditor | undefined;
+    #highlightDecorationIds: string[] = [];
     #tsServerClient: TsServerClient | undefined;
     #syncTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -110,13 +119,31 @@ export class MmEditorElement extends HTMLElement {
     }
 
     connectedCallback(): void {
-        monaco.editor.create(this.#host, { model: this.#model, automaticLayout: true });
+        this.#editorInstance = monaco.editor.create(this.#host, { model: this.#model, automaticLayout: true });
 
         void this.#connectTsServer();
     }
 
     getSource(): string {
         return this.#model.getValue();
+    }
+
+    // Applies (replacing any previous set) a highlight decoration to each
+    // given range - the CSS class itself is left for the user to style, this
+    // only owns applying/clearing it as playback progresses.
+    highlightRanges(ranges: HighlightRange[]): void {
+        if (!this.#editorInstance) return;
+
+        const decorations: monaco.editor.IModelDeltaDecoration[] = ranges.map(range => ({
+            range: new monaco.Range(range.startLine, range.startColumn, range.endLine, range.endColumn),
+            options: { inlineClassName: "mm-highlighted-event" }
+        }));
+
+        this.#highlightDecorationIds = this.#editorInstance.deltaDecorations(this.#highlightDecorationIds, decorations);
+    }
+
+    clearHighlights(): void {
+        this.highlightRanges([]);
     }
 
     async #connectTsServer(): Promise<void> {

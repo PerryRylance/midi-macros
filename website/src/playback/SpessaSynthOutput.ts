@@ -61,4 +61,8 @@ export class SpessaSynthOutput implements PlaybackOutput {
         this.#sequencer.pause();
         this.#sequencer.currentTime = 0;
     }
+
+    getCurrentTime(): number {
+        return (this.#sequencer?.currentTime ?? 0) * 1000;
+    }
 }

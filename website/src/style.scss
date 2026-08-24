@@ -3,6 +3,8 @@ $dark-background: #306082;
 $light-text: #ffffff;
 $light-background: #ffffff;
 $disabled: #696a6a;
+$highlight-fill: #fcbae5;
+$highlight-stroke: #d95763;
 
 html, body
 {
@@ -199,4 +201,9 @@ mm-package-terminal
     margin: 0;
     background-color: black;
     color: white;
+}
+
+mm-editor .mm-highlighted-event
+{
+    background-color: $highlight-fill;
 }
