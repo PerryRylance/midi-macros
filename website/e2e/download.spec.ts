@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
 import JSZip from "jszip";
 
+async function openPackagesTab(page: import("@playwright/test").Page): Promise<void> {
+    await page.locator("#tab-button-packages").click();
+}
+
 test("shows a Download button in the toolbar", async ({ page }) => {
     await page.goto("/");
 
@@ -45,4 +49,22 @@ test("downloads a zip of the program, package.json and package-lock.json, disabl
     expect(Object.keys(zip.files).sort()).toEqual(["package-lock.json", "package.json", "program.ts"]);
     expect(await zip.file("program.ts")!.async("string")).toContain("NoteOnEvent");
     expect(JSON.parse(await zip.file("package.json")!.async("string")).name).toBe("sandbox");
+});
+
+test("disables the download button while npm installs a package, and re-enables it once done", async ({ page }) => {
+    await page.goto("/");
+    await openPackagesTab(page);
+
+    const downloadButton = page.locator("#serialization-controls").getByRole("button", { name: "Download" });
+    const status = page.locator("#status");
+
+    await expect(status).toHaveText("Ready.", { timeout: 60_000 });
+    await expect(downloadButton).toBeEnabled();
+
+    await page.locator("#package-name").fill("nanoid");
+    await page.locator("#install-button").click();
+
+    await expect(downloadButton).toBeDisabled();
+    await expect(status).toHaveText("Installed nanoid.", { timeout: 60_000 });
+    await expect(downloadButton).toBeEnabled();
 });

@@ -1,5 +1,5 @@
 import { createElement, Download } from "lucide";
-import { bootWebContainer } from "../webcontainer";
+import { bootWebContainer, onNpmBusyChange } from "../webcontainer";
 import { buildDownloadArchive } from "../serialization";
 import { dispatchBuildOutput, dispatchBuildOutputClear } from "../events";
 import type { MmEditorElement } from "./mm-editor";
@@ -29,6 +29,14 @@ function triggerDownload(blob: Blob, fileName: string): void {
 
 export class MmSerializationControlsElement extends HTMLElement {
     #downloadButton: HTMLButtonElement;
+    #npmBusy = false;
+    #downloading = false;
+    #unsubscribeNpmBusy: (() => void) | undefined;
+
+    #onNpmBusyChange = (busy: boolean): void => {
+        this.#npmBusy = busy;
+        this.#updateDisabled();
+    };
 
     constructor() {
         super();
@@ -36,6 +44,7 @@ export class MmSerializationControlsElement extends HTMLElement {
         this.#downloadButton = document.createElement("button");
         this.#downloadButton.id = "download-button";
         this.#downloadButton.type = "button";
+        this.#downloadButton.disabled = true;
         this.#downloadButton.setAttribute("aria-label", "Download");
         this.#downloadButton.append(createElement(Download));
 
@@ -44,12 +53,25 @@ export class MmSerializationControlsElement extends HTMLElement {
         this.append(this.#downloadButton);
     }
 
+    connectedCallback(): void {
+        this.#unsubscribeNpmBusy = onNpmBusyChange(this.#onNpmBusyChange);
+    }
+
+    disconnectedCallback(): void {
+        this.#unsubscribeNpmBusy?.();
+    }
+
+    #updateDisabled(): void {
+        this.#downloadButton.disabled = this.#npmBusy || this.#downloading;
+    }
+
     async #handleDownload(): Promise<void> {
         const editor = document.querySelector<MmEditorElement>("#editor");
 
         if (!editor) return;
 
-        this.#downloadButton.disabled = true;
+        this.#downloading = true;
+        this.#updateDisabled();
         dispatchBuildOutputClear();
         dispatchBuildOutput({ status: "info", message: "Preparing download..." });
         document.querySelector<MmTabsElement>(`#${BUILD_TABS_ID}`)?.activatePanel(OUTPUT_PANEL_ID);
@@ -74,7 +96,8 @@ export class MmSerializationControlsElement extends HTMLElement {
         } catch (error) {
             dispatchBuildOutput({ status: "error", message: toErrorMessage(error) });
         } finally {
-            this.#downloadButton.disabled = false;
+            this.#downloading = false;
+            this.#updateDisabled();
         }
     }
 }

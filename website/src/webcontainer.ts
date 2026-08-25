@@ -42,28 +42,72 @@ export interface InstallResult {
     output: string;
 }
 
-async function runNpmCommand(
+// Tracked here (rather than via events.ts's document-dispatched events) so
+// this stays plain logic, unit-testable in Node without a DOM - see
+// soundfont.ts/webcontainer.test.ts for the same split. Callers that need a
+// DOM-facing signal (e.g. mm-serialization-controls) subscribe directly.
+let npmBusyCount = 0;
+const npmBusyListeners = new Set<(busy: boolean) => void>();
+
+export function isNpmBusy(): boolean {
+    return npmBusyCount > 0;
+}
+
+// Invokes the listener immediately with the current state, then again on
+// every subsequent transition - so a caller that subscribes after npm has
+// already started (or finished) working still gets an accurate read,
+// instead of only finding out about the next change.
+export function onNpmBusyChange(listener: (busy: boolean) => void): () => void {
+    listener(isNpmBusy());
+    npmBusyListeners.add(listener);
+
+    return () => npmBusyListeners.delete(listener);
+}
+
+function beginNpmWork(): void {
+    npmBusyCount++;
+    if (npmBusyCount === 1) notifyNpmBusyListeners();
+}
+
+function endNpmWork(): void {
+    npmBusyCount--;
+    if (npmBusyCount === 0) notifyNpmBusyListeners();
+}
+
+function notifyNpmBusyListeners(): void {
+    const busy = isNpmBusy();
+
+    for (const listener of npmBusyListeners) listener(busy);
+}
+
+export async function runNpmCommand(
     container: WebContainer,
     args: string[],
     onOutput?: (chunk: string) => void
 ): Promise<InstallResult> {
-    const process = await container.spawn("npm", args);
+    beginNpmWork();
 
-    let output = "";
-    const reader = process.output.getReader();
+    try {
+        const process = await container.spawn("npm", args);
 
-    while (true) {
-        const { done, value } = await reader.read();
+        let output = "";
+        const reader = process.output.getReader();
 
-        if (done) break;
+        while (true) {
+            const { done, value } = await reader.read();
 
-        output += value;
-        onOutput?.(value);
+            if (done) break;
+
+            output += value;
+            onOutput?.(value);
+        }
+
+        const exitCode = await process.exit;
+
+        return { exitCode, output };
+    } finally {
+        endNpmWork();
     }
-
-    const exitCode = await process.exit;
-
-    return { exitCode, output };
 }
 
 export async function installPackage(

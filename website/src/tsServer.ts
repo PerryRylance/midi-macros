@@ -1,4 +1,5 @@
 import type { WebContainer, WebContainerProcess } from "@webcontainer/api";
+import { runNpmCommand } from "./webcontainer";
 
 // Tooling used by our own code (the language server, and the program
 // evaluator's event-timing resolution) - not user-facing packages, so kept
@@ -21,15 +22,5 @@ export function startTsServer(container: WebContainer): Promise<WebContainerProc
 }
 
 async function installToolingDependencies(container: WebContainer): Promise<void> {
-    const process = await container.spawn("npm", ["install", "--save-dev", ...TOOLING_DEPENDENCIES]);
-
-    const reader = process.output.getReader();
-
-    while (true) {
-        const { done } = await reader.read();
-
-        if (done) break;
-    }
-
-    await process.exit;
+    await runNpmCommand(container, ["install", "--save-dev", ...TOOLING_DEPENDENCIES]);
 }

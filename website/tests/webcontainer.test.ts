@@ -3,10 +3,32 @@ import {
     DEFAULT_DEPENDENCIES,
     installPackage,
     isDefaultDependency,
+    isNpmBusy,
     isValidPackageName,
     listInstalledPackages,
+    onNpmBusyChange,
     uninstallPackage
 } from "../src/webcontainer";
+
+// A container whose npm process only resolves its exit code once the test
+// tells it to, so busy-tracking can be observed mid-command instead of
+// racing against an already-settled promise.
+function createControllableContainer() {
+    let resolveExit!: (code: number) => void;
+
+    const spawn = vi.fn().mockResolvedValue({
+        output: new ReadableStream<string>({
+            start(controller) {
+                controller.close();
+            }
+        }),
+        exit: new Promise<number>(resolve => {
+            resolveExit = resolve;
+        })
+    });
+
+    return { container: { spawn } as any, finishWith: (code: number) => resolveExit(code) };
+}
 
 describe("isValidPackageName", () => {
     it("accepts a simple lowercase package name", () => {
@@ -177,6 +199,75 @@ describe("listInstalledPackages", () => {
         const container = { fs: { readFile } } as any;
 
         expect(await listInstalledPackages(container)).toEqual([]);
+    });
+});
+
+describe("isNpmBusy / onNpmBusyChange", () => {
+    it("reports idle when no npm command is running", () => {
+        expect(isNpmBusy()).toBe(false);
+    });
+
+    it("reports busy while a command is in flight, then idle once it settles", async () => {
+        const { container, finishWith } = createControllableContainer();
+
+        const promise = installPackage(container, "nanoid");
+
+        expect(isNpmBusy()).toBe(true);
+
+        finishWith(0);
+        await promise;
+
+        expect(isNpmBusy()).toBe(false);
+    });
+
+    it("stays busy while a second overlapping command is still running", async () => {
+        const first = createControllableContainer();
+        const second = createControllableContainer();
+
+        const firstPromise = installPackage(first.container, "nanoid");
+        const secondPromise = installPackage(second.container, "left-pad");
+
+        first.finishWith(0);
+        await firstPromise;
+
+        expect(isNpmBusy()).toBe(true);
+
+        second.finishWith(0);
+        await secondPromise;
+
+        expect(isNpmBusy()).toBe(false);
+    });
+
+    it("notifies a subscriber immediately with the current state, then on each transition", async () => {
+        const { container, finishWith } = createControllableContainer();
+        const states: boolean[] = [];
+
+        const unsubscribe = onNpmBusyChange(busy => states.push(busy));
+        expect(states).toEqual([false]);
+
+        const promise = installPackage(container, "nanoid");
+        expect(states).toEqual([false, true]);
+
+        finishWith(0);
+        await promise;
+        expect(states).toEqual([false, true, false]);
+
+        unsubscribe();
+    });
+
+    it("stops notifying once unsubscribed", async () => {
+        const { container, finishWith } = createControllableContainer();
+        const listener = vi.fn();
+
+        const unsubscribe = onNpmBusyChange(listener);
+        unsubscribe();
+        listener.mockClear();
+
+        const promise = installPackage(container, "nanoid");
+        finishWith(0);
+        await promise;
+
+        expect(listener).not.toHaveBeenCalled();
     });
 });
 
