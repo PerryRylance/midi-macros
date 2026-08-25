@@ -113,6 +113,18 @@ describe("evaluateProgram", () => {
         expect(runnerScript).toContain("isTypeAssignableTo");
     });
 
+    it("threads an iteration context through .map()/.forEach()/.flatMap() callbacks for element-level highlighting", async () => {
+        const { container, writeFile } = createFakeContainer();
+
+        await evaluateProgram(container, "export default 1;");
+
+        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-program.cjs")!;
+        expect(runnerScript).toContain("__iterationStack");
+        expect(runnerScript).toContain('"map"');
+        expect(runnerScript).toContain('"forEach"');
+        expect(runnerScript).toContain('"flatMap"');
+    });
+
     it("throws a ProgramEvaluationError with the collected output when the process exits non-zero", async () => {
         const { container } = createFakeContainer({
             exitCode: 1,

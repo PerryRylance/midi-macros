@@ -11,7 +11,7 @@ import {
 } from "../events";
 import { SpessaSynthOutput } from "../playback/SpessaSynthOutput";
 import type { PlaybackOutput } from "../playback/PlaybackOutput";
-import type { MmEditorElement } from "./mm-editor";
+import type { Highlight, MmEditorElement } from "./mm-editor";
 import type { MmTabsElement } from "./mm-tabs";
 
 const BUILD_TABS_ID = "build-tabs";
@@ -19,6 +19,18 @@ const OUTPUT_PANEL_ID = "tab-output";
 
 function toErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+}
+
+// Each currently-active event contributes its own constructor call, plus one
+// highlight per enclosing .map()/.forEach()/.flatMap() whose iterated array
+// could be traced back to a literal (see agents/SPIKE.md) - e.g. for a note
+// built inside `notes.map(n => new NoteOnEvent().key(n))`, both the
+// constructor call and the specific literal note currently being processed.
+function toHighlights(entries: TimelineEntry[]): Highlight[] {
+    return entries.flatMap(entry => [
+        { range: entry, className: "mm-highlighted-event" },
+        ...entry.elementRanges.map(range => ({ range, className: "mm-highlighted-element" }))
+    ]);
 }
 
 function createIconButton(id: string, label: string, icon: typeof Play): HTMLButtonElement {
@@ -194,7 +206,7 @@ export class MmPlaybackControlsElement extends HTMLElement {
                 entry => entry.milliseconds >= this.#lastHighlightMs && entry.milliseconds < milliseconds
             );
 
-            if (active.length > 0) editor?.highlightRanges(active);
+            if (active.length > 0) editor?.highlightRanges(toHighlights(active));
 
             this.#lastHighlightMs = milliseconds;
         }

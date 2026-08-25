@@ -71,6 +71,14 @@ export interface HighlightRange {
     endColumn: number;
 }
 
+export interface Highlight {
+    range: HighlightRange;
+    // A CSS class name to apply - left for the user to style; distinct
+    // callers use distinct classes (e.g. the event constructor itself vs.
+    // the array element driving it) so they can be styled differently.
+    className: string;
+}
+
 export class MmEditorElement extends HTMLElement {
     #model: monaco.editor.ITextModel;
     #host: HTMLDivElement;
@@ -128,15 +136,15 @@ export class MmEditorElement extends HTMLElement {
         return this.#model.getValue();
     }
 
-    // Applies (replacing any previous set) a highlight decoration to each
-    // given range - the CSS class itself is left for the user to style, this
-    // only owns applying/clearing it as playback progresses.
-    highlightRanges(ranges: HighlightRange[]): void {
+    // Applies (replacing any previous set) a highlight decoration for each
+    // given entry - the CSS classes themselves are left for the user to
+    // style, this only owns applying/clearing them as playback progresses.
+    highlightRanges(highlights: Highlight[]): void {
         if (!this.#editorInstance) return;
 
-        const decorations: monaco.editor.IModelDeltaDecoration[] = ranges.map(range => ({
+        const decorations: monaco.editor.IModelDeltaDecoration[] = highlights.map(({ range, className }) => ({
             range: new monaco.Range(range.startLine, range.startColumn, range.endLine, range.endColumn),
-            options: { inlineClassName: "mm-highlighted-event" }
+            options: { inlineClassName: className }
         }));
 
         this.#highlightDecorationIds = this.#editorInstance.deltaDecorations(this.#highlightDecorationIds, decorations);

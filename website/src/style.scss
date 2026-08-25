@@ -203,7 +203,10 @@ mm-package-terminal
     color: white;
 }
 
-mm-editor .mm-highlighted-event
+mm-editor
 {
-    background-color: $highlight-fill;
+    .mm-highlighted-event, .mm-highlighted-element
+    {
+        background-color: $highlight-fill;
+    }
 }

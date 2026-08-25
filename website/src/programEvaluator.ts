@@ -7,16 +7,24 @@ const OUTPUT_FILE_NAME = "output.mid";
 const TIMELINE_FILE_NAME = "timeline.json";
 const RUNNER_FILE_NAME = "run-program.cjs";
 
-// A source range for a single tagged MIDI event constructor call, resolved
-// to a playback time - see the highlighting pipeline in mm-playback-controls.ts.
-export interface TimelineEntry {
-    trackIndex: number;
-    ticks: number;
-    milliseconds: number;
+export interface SourceRange {
     startLine: number;
     startColumn: number;
     endLine: number;
     endColumn: number;
+}
+
+// A source range for a single tagged MIDI event constructor call, resolved
+// to a playback time - see the highlighting pipeline in mm-playback-controls.ts.
+// elementRanges holds, for each enclosing .map()/.forEach()/.flatMap() call
+// (outermost first) whose iterated array could be traced back to a literal
+// array in source, the range of the specific element that produced this
+// event - see agents/SPIKE.md for what this can and can't resolve.
+export interface TimelineEntry extends SourceRange {
+    trackIndex: number;
+    ticks: number;
+    milliseconds: number;
+    elementRanges: SourceRange[];
 }
 
 export interface EvaluatedProgram {
@@ -111,10 +119,128 @@ ts.forEachChild(entryFile, node => {
     }
 });
 
+function createRangeLiteral(sourceFile, start, end) {
+    return ts.factory.createObjectLiteralExpression([
+        ts.factory.createPropertyAssignment("startLine", ts.factory.createNumericLiteral(start.line + 1)),
+        ts.factory.createPropertyAssignment("startColumn", ts.factory.createNumericLiteral(start.character + 1)),
+        ts.factory.createPropertyAssignment("endLine", ts.factory.createNumericLiteral(end.line + 1)),
+        ts.factory.createPropertyAssignment("endColumn", ts.factory.createNumericLiteral(end.character + 1))
+    ]);
+}
+
+// See agents/SPIKE.md ("Level 2"). Resolves an expression back to an array
+// literal written in source, if possible - directly ([1,2,3].map(...)), or
+// via the type checker's real symbol resolution for a named constant
+// (const notes = [1,2,3]; notes.map(...)). Deliberately does not attempt to
+// resolve through a callback parameter (e.g. the inner "chord" in
+// chords.flatMap(chord => chord.map(...))) - that's a real boundary, not a
+// bug, per the spike's "Level 3, not validated" finding.
+function resolveArrayLiteral(expr) {
+    if (ts.isArrayLiteralExpression(expr)) return expr;
+    if (!ts.isIdentifier(expr)) return undefined;
+
+    const symbol = checker.getSymbolAtLocation(expr);
+    if (!symbol) return undefined;
+
+    for (const declaration of symbol.getDeclarations() || []) {
+        if (ts.isVariableDeclaration(declaration) && declaration.initializer && ts.isArrayLiteralExpression(declaration.initializer)) {
+            return declaration.initializer;
+        }
+    }
+
+    return undefined;
+}
+
+function elementRangeLiterals(expr) {
+    const literal = resolveArrayLiteral(expr);
+    if (!literal) return undefined;
+
+    const literalSourceFile = literal.getSourceFile();
+
+    return literal.elements.map(element =>
+        createRangeLiteral(
+            literalSourceFile,
+            literalSourceFile.getLineAndCharacterOfPosition(element.getStart()),
+            literalSourceFile.getLineAndCharacterOfPosition(element.getEnd())
+        )
+    );
+}
+
+// .map()/.forEach()/.flatMap() calls whose iterated array resolves to a
+// literal - see agents/SPIKE.md. "current element" isn't knowable statically
+// (any of these can run any number of times), so tagging alone (below)
+// isn't enough - this instead threads it through at runtime via a stack,
+// pushed/popped around each *actual* invocation of the original callback.
+const ITERATION_METHODS = new Set(["map", "forEach", "flatMap"]);
+
+function wrapIterationCallback(node, visitedNode) {
+    if (
+        !ts.isCallExpression(node) ||
+        !ts.isPropertyAccessExpression(node.expression) ||
+        !ITERATION_METHODS.has(node.expression.name.text) ||
+        node.arguments.length === 0
+    ) {
+        return undefined;
+    }
+
+    const elementRanges = elementRangeLiterals(node.expression.expression);
+
+    const elParam = ts.factory.createUniqueName("el");
+    const idxParam = ts.factory.createUniqueName("idx");
+    const arrParam = ts.factory.createUniqueName("arr");
+
+    const elementRangeValue = elementRanges
+        ? ts.factory.createElementAccessExpression(ts.factory.createArrayLiteralExpression(elementRanges), idxParam)
+        : ts.factory.createIdentifier("undefined");
+
+    const pushCall = ts.factory.createExpressionStatement(
+        ts.factory.createCallExpression(
+            ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier("__iterationStack"), "push"),
+            undefined,
+            [ts.factory.createObjectLiteralExpression([
+                ts.factory.createPropertyAssignment("elementRange", elementRangeValue)
+            ])]
+        )
+    );
+
+    const popCall = ts.factory.createExpressionStatement(
+        ts.factory.createCallExpression(
+            ts.factory.createPropertyAccessExpression(ts.factory.createIdentifier("__iterationStack"), "pop"),
+            undefined,
+            []
+        )
+    );
+
+    const callOriginal = ts.factory.createCallExpression(visitedNode.arguments[0], undefined, [elParam, idxParam, arrParam]);
+
+    const wrapperBody = ts.factory.createBlock([
+        pushCall,
+        ts.factory.createTryStatement(
+            ts.factory.createBlock([ts.factory.createReturnStatement(callOriginal)], true),
+            undefined,
+            ts.factory.createBlock([popCall], true)
+        )
+    ], true);
+
+    const wrapper = ts.factory.createArrowFunction(
+        undefined, undefined,
+        [elParam, idxParam, arrParam].map(param => ts.factory.createParameterDeclaration(undefined, undefined, param)),
+        undefined, undefined, wrapperBody
+    );
+
+    return ts.factory.updateCallExpression(visitedNode, visitedNode.expression, visitedNode.typeArguments, [
+        wrapper,
+        ...visitedNode.arguments.slice(1)
+    ]);
+}
+
 function createTaggingTransformer(context) {
     return sourceFile => {
         function visit(node) {
             const visited = ts.visitEachChild(node, visit, context);
+
+            const wrapped = wrapIterationCallback(node, visited);
+            if (wrapped) return wrapped;
 
             if (!ts.isNewExpression(node) || !eventType) return visited;
 
@@ -123,15 +249,11 @@ function createTaggingTransformer(context) {
 
             // Just the "new XxxEvent(...)" constructor call itself, not any
             // chained builder calls after it (e.g. ".key(60)").
-            const start = sourceFile.getLineAndCharacterOfPosition(node.getStart());
-            const end = sourceFile.getLineAndCharacterOfPosition(node.getEnd());
-
-            const range = ts.factory.createObjectLiteralExpression([
-                ts.factory.createPropertyAssignment("startLine", ts.factory.createNumericLiteral(start.line + 1)),
-                ts.factory.createPropertyAssignment("startColumn", ts.factory.createNumericLiteral(start.character + 1)),
-                ts.factory.createPropertyAssignment("endLine", ts.factory.createNumericLiteral(end.line + 1)),
-                ts.factory.createPropertyAssignment("endColumn", ts.factory.createNumericLiteral(end.character + 1))
-            ]);
+            const range = createRangeLiteral(
+                sourceFile,
+                sourceFile.getLineAndCharacterOfPosition(node.getStart()),
+                sourceFile.getLineAndCharacterOfPosition(node.getEnd())
+            );
 
             return ts.factory.createCallExpression(ts.factory.createIdentifier("__tagEvent"), undefined, [visited, range]);
         }
@@ -147,7 +269,18 @@ tsProgram.emit(programSourceFile, (_fileName, text) => {
     emitted = text;
 }, undefined, false, { before: [createTaggingTransformer] });
 
-const TAG_RUNTIME = "function __tagEvent(event, range) { try { event.__sourceRange = range; } catch (e) {} return event; }\\n";
+// __iterationStack holds one frame per currently-executing .map()/.forEach()/
+// .flatMap() callback (outermost first) - a plain array works because
+// building a File is entirely synchronous, so push/pop always nest correctly
+// even across arbitrarily deep loops (see agents/SPIKE.md).
+const TAG_RUNTIME = "var __iterationStack = [];\\n" +
+    "function __tagEvent(event, range) {\\n" +
+    "    try {\\n" +
+    "        event.__sourceRange = range;\\n" +
+    "        event.__iterationContext = __iterationStack.slice();\\n" +
+    "    } catch (e) {}\\n" +
+    "    return event;\\n" +
+    "}\\n";
 
 fs.writeFileSync(${JSON.stringify(COMPILED_FILE_NAME)}, TAG_RUNTIME + emitted);
 
@@ -165,11 +298,16 @@ resolver.tracks.forEach((track, trackIndex) => {
 
         if (!range) return;
 
+        const elementRanges = (resolved.original.__iterationContext || [])
+            .map(frame => frame.elementRange)
+            .filter(Boolean);
+
         timeline.push({
             trackIndex,
             ticks: resolved.absolute.ticks,
             milliseconds: resolved.absolute.milliseconds,
-            ...range
+            ...range,
+            elementRanges
         });
     });
 });

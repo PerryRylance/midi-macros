@@ -687,3 +687,31 @@ of that WebContainer session.
   plus the `window.__lspLog` array in `tsServerClient.ts`) was deliberately
   left in per explicit user request ("leave the logging in until I say
   otherwise"). Remove it once the user confirms.
+
+## Another symptom of the same root cause: the package list itself losing an entry
+
+**Status:** Open, not investigated further - logged here, not fixed, since
+it's the same underlying concurrent-npm-churn issue as above, just a
+different visible symptom.
+
+While building the array-element highlighting feature, `e2e/foundations.spec.ts`'s
+`disables remove buttons while the terminal is busy` test started failing
+reproducibly (2/2 runs): after installing `nanoid` then immediately `left-pad`,
+`#package-list` only shows the default two dependencies plus `left-pad` -
+`nanoid` itself is missing from the rendered list, even though `#status` did
+show "Installed nanoid." earlier in the same test. This is a real bug (not a
+test-timing issue - the DOM snapshot at failure time confirms the list itself
+is short an item), and it's unrelated to the highlighting work itself (all
+of `playback.spec.ts`, `ide.spec.ts`, `highlighting.spec.ts` and
+`sidebar.spec.ts` pass; `foundations.spec.ts`'s other install/remove tests,
+which don't fire two installs back-to-back as fast, also pass).
+
+The likely connection to this section's root cause: `tsServer.ts`'s tooling
+install (`npm install --save-dev typescript@5.9.3
+@perry-rylance/midi-to-milliseconds`, triggered by every `mm-editor` mount)
+now installs one more package than before, in the same shared
+WebContainer/`node_modules` the Packages tab's own installs mutate - a
+slightly longer-running concurrent `npm install` widens the exact race
+window this section already describes. Not confirmed by direct
+instrumentation this time (unlike the tsserver-crash symptom above, which
+was), so treat the causal link as a plausible hypothesis, not a proven one.

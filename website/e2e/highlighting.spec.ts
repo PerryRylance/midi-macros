@@ -79,6 +79,78 @@ test("clears highlights once the song finishes playing on its own", async ({ pag
     await expect(page.locator(".mm-highlighted-event")).toHaveCount(0, { timeout: 10_000 });
 });
 
+// A note built inside .flatMap() over a *named* array (not an inline
+// literal) - the common "musical pattern" shape from agents/SPIKE.md.
+// Comfortable ~5s gaps (delta 4800) between notes, same reasoning as
+// SIMPLE_PROGRAM above.
+const PATTERN_PROGRAM =
+    'import { File, Track, NoteOnEvent, NoteOffEvent } from "@perry-rylance/midi";\n\n' +
+    "const notes = [60, 64, 67];\n\n" +
+    "export default new File().tracks([\n" +
+    "    new Track().events(\n" +
+    "        notes.flatMap(n => [\n" +
+    "            new NoteOnEvent().key(n),\n" +
+    "            new NoteOffEvent().delta(4800).key(n)\n" +
+    "        ])\n" +
+    "    )\n" +
+    "]);";
+
+test("highlights the current array element for a note built inside .flatMap over a named array", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await replaceEditorContent(page, PATTERN_PROGRAM);
+
+    await controls.getByRole("button", { name: "Play" }).click();
+
+    const eventHighlight = page.locator(".mm-highlighted-event");
+    await expect(eventHighlight.first()).toBeVisible({ timeout: 60_000 });
+
+    const eventText = (await eventHighlight.allTextContents()).join("");
+    expect(eventText).toContain("NoteOnEvent");
+
+    // The literal "60" inside `const notes = [60, 64, 67]` - resolved back
+    // through the named array, not just an inline literal at the call site.
+    const elementHighlight = page.locator(".mm-highlighted-element");
+    await expect(elementHighlight.first()).toBeVisible({ timeout: 5_000 });
+
+    const elementText = (await elementHighlight.allTextContents()).join("");
+    expect(elementText).toBe("60");
+});
+
+// The receiver of .map() here is .filter()'s return value, not a literal or
+// named array - per agents/SPIKE.md this is expected to degrade gracefully
+// to constructor-only highlighting, with no element highlight at all. Needs
+// a real duration (delta 4800 on the last note) - with none, the "song" ends
+// near-instantly and there's nothing to reliably observe.
+const FILTERED_PROGRAM =
+    'import { File, Track, NoteOnEvent, NoteOffEvent } from "@perry-rylance/midi";\n\n' +
+    "const notes = [60, 64, 67];\n\n" +
+    "export default new File().tracks([\n" +
+    "    new Track().events([\n" +
+    "        ...notes.filter(n => n > 60).map(n => new NoteOnEvent().key(n)),\n" +
+    "        new NoteOffEvent().delta(4800).key(64)\n" +
+    "    ])\n" +
+    "]);";
+
+test("does not highlight an array element when the iterated array can't be traced back to a literal", async ({ page }) => {
+    await page.goto("/");
+
+    const controls = page.locator("#playback-controls");
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await replaceEditorContent(page, FILTERED_PROGRAM);
+
+    await controls.getByRole("button", { name: "Play" }).click();
+
+    await expect(page.locator(".mm-highlighted-event").first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator(".mm-highlighted-element")).toHaveCount(0);
+});
+
 test("clears highlights when Stop is pressed", async ({ page }) => {
     await page.goto("/");
 
