@@ -7,7 +7,9 @@ import {
     dispatchBuildOutputClear,
     SOUNDFONT_LOADED_EVENT,
     SOUNDFONT_LOADING_EVENT,
-    type SoundfontLoadedDetail
+    type SoundfontLoadedDetail,
+    UPLOAD_BUSY_EVENT,
+    UPLOAD_IDLE_EVENT
 } from "../events";
 import { SpessaSynthOutput } from "../playback/SpessaSynthOutput";
 import type { PlaybackOutput } from "../playback/PlaybackOutput";
@@ -55,13 +57,29 @@ export class MmPlaybackControlsElement extends HTMLElement {
     #highlightLoopHandle: number | undefined;
     #isPlaying = false;
 
+    #soundfontLoading = true;
+    #uploadBusy = false;
+    #rendering = false;
+
     #onSoundfontLoading = (): void => {
-        this.#setDisabled(true);
+        this.#soundfontLoading = true;
+        this.#updateDisabled();
     };
 
     #onSoundfontLoaded = (event: Event): void => {
         this.#soundfont = (event as CustomEvent<SoundfontLoadedDetail>).detail;
-        this.#setDisabled(false);
+        this.#soundfontLoading = false;
+        this.#updateDisabled();
+    };
+
+    #onUploadBusy = (): void => {
+        this.#uploadBusy = true;
+        this.#updateDisabled();
+    };
+
+    #onUploadIdle = (): void => {
+        this.#uploadBusy = false;
+        this.#updateDisabled();
     };
 
     // Ctrl+Enter starts playback (or restarts it, if already playing - #handlePlay
@@ -101,7 +119,7 @@ export class MmPlaybackControlsElement extends HTMLElement {
         // user didn't press Stop.
         this.#output.onEnded(() => this.#resetHighlightState());
 
-        this.#setDisabled(true);
+        this.#updateDisabled();
 
         this.append(this.#playButton, this.#pauseButton, this.#stopButton);
     }
@@ -109,6 +127,8 @@ export class MmPlaybackControlsElement extends HTMLElement {
     connectedCallback(): void {
         document.addEventListener(SOUNDFONT_LOADING_EVENT, this.#onSoundfontLoading);
         document.addEventListener(SOUNDFONT_LOADED_EVENT, this.#onSoundfontLoaded);
+        document.addEventListener(UPLOAD_BUSY_EVENT, this.#onUploadBusy);
+        document.addEventListener(UPLOAD_IDLE_EVENT, this.#onUploadIdle);
         document.addEventListener("keydown", this.#onKeyDown, true);
 
         this.#highlightLoopHandle = requestAnimationFrame(() => this.#runHighlightLoop());
@@ -117,12 +137,16 @@ export class MmPlaybackControlsElement extends HTMLElement {
     disconnectedCallback(): void {
         document.removeEventListener(SOUNDFONT_LOADING_EVENT, this.#onSoundfontLoading);
         document.removeEventListener(SOUNDFONT_LOADED_EVENT, this.#onSoundfontLoaded);
+        document.removeEventListener(UPLOAD_BUSY_EVENT, this.#onUploadBusy);
+        document.removeEventListener(UPLOAD_IDLE_EVENT, this.#onUploadIdle);
         document.removeEventListener("keydown", this.#onKeyDown, true);
 
         if (this.#highlightLoopHandle !== undefined) cancelAnimationFrame(this.#highlightLoopHandle);
     }
 
-    #setDisabled(disabled: boolean): void {
+    #updateDisabled(): void {
+        const disabled = this.#soundfontLoading || this.#uploadBusy || this.#rendering;
+
         this.#playButton.disabled = disabled;
         this.#pauseButton.disabled = disabled;
         this.#stopButton.disabled = disabled;
@@ -135,7 +159,8 @@ export class MmPlaybackControlsElement extends HTMLElement {
 
         const source = editor.getSource();
 
-        this.#setDisabled(true);
+        this.#rendering = true;
+        this.#updateDisabled();
         dispatchBuildOutputClear();
         dispatchBuildOutput({ status: "info", message: "Rendering audio..." });
         document.querySelector<MmTabsElement>(`#${BUILD_TABS_ID}`)?.activatePanel(OUTPUT_PANEL_ID);
@@ -161,7 +186,8 @@ export class MmPlaybackControlsElement extends HTMLElement {
         } catch (error) {
             dispatchBuildOutput({ status: "error", message: toErrorMessage(error) });
         } finally {
-            this.#setDisabled(false);
+            this.#rendering = false;
+            this.#updateDisabled();
         }
     }
 

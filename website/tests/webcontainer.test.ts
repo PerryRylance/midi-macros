@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+    createDefaultPackageJson,
     DEFAULT_DEPENDENCIES,
     installPackage,
     isDefaultDependency,
     isNpmBusy,
     isValidPackageName,
     listInstalledPackages,
+    loadUploadedProject,
     onNpmBusyChange,
     uninstallPackage
 } from "../src/webcontainer";
@@ -268,6 +270,65 @@ describe("isNpmBusy / onNpmBusyChange", () => {
         await promise;
 
         expect(listener).not.toHaveBeenCalled();
+    });
+});
+
+describe("createDefaultPackageJson", () => {
+    it("declares each default dependency with a name and private:true, installable by a bare `npm install`", () => {
+        const manifest = JSON.parse(createDefaultPackageJson());
+
+        expect(manifest.name).toBe("sandbox");
+        expect(manifest.private).toBe(true);
+
+        for (const name of DEFAULT_DEPENDENCIES) {
+            expect(manifest.dependencies).toHaveProperty(name);
+        }
+    });
+});
+
+describe("loadUploadedProject", () => {
+    it("mounts the uploaded package.json/package-lock.json and runs `npm ci`", async () => {
+        const mount = vi.fn().mockResolvedValue(undefined);
+        const spawn = vi.fn().mockResolvedValue({
+            output: new ReadableStream<string>({
+                start(controller) {
+                    controller.close();
+                }
+            }),
+            exit: Promise.resolve(0)
+        });
+        const container = { mount, spawn } as any;
+
+        const result = await loadUploadedProject(container, {
+            packageJson: "{\"name\":\"uploaded\"}",
+            packageLockJson: "{\"lockfileVersion\":3}"
+        });
+
+        expect(mount).toHaveBeenCalledWith({
+            "package.json": { file: { contents: "{\"name\":\"uploaded\"}" } },
+            "package-lock.json": { file: { contents: "{\"lockfileVersion\":3}" } }
+        });
+        expect(spawn).toHaveBeenCalledWith("npm", ["ci"]);
+        expect(result.exitCode).toBe(0);
+    });
+
+    it("resolves with a non-zero exit code when npm ci fails, without throwing", async () => {
+        const mount = vi.fn().mockResolvedValue(undefined);
+        const spawn = vi.fn().mockResolvedValue({
+            output: new ReadableStream<string>({
+                start(controller) {
+                    controller.enqueue("npm ERR! package.json and package-lock.json are out of sync");
+                    controller.close();
+                }
+            }),
+            exit: Promise.resolve(1)
+        });
+        const container = { mount, spawn } as any;
+
+        const result = await loadUploadedProject(container, { packageJson: "{}", packageLockJson: "{}" });
+
+        expect(result.exitCode).toBe(1);
+        expect(result.output).toContain("out of sync");
     });
 });
 

@@ -1,7 +1,13 @@
-import { createElement, Download } from "lucide";
-import { bootWebContainer, onNpmBusyChange } from "../webcontainer";
-import { buildDownloadArchive } from "../serialization";
-import { dispatchBuildOutput, dispatchBuildOutputClear } from "../events";
+import { createElement, Download, Upload } from "lucide";
+import { bootWebContainer, loadUploadedProject, onNpmBusyChange } from "../webcontainer";
+import { buildDownloadArchive, parseUploadArchive } from "../serialization";
+import {
+    dispatchBuildOutput,
+    dispatchBuildOutputClear,
+    dispatchTerminalOutput,
+    dispatchUploadBusy,
+    dispatchUploadIdle
+} from "../events";
 import type { MmEditorElement } from "./mm-editor";
 import type { MmTabsElement } from "./mm-tabs";
 
@@ -29,8 +35,12 @@ function triggerDownload(blob: Blob, fileName: string): void {
 
 export class MmSerializationControlsElement extends HTMLElement {
     #downloadButton: HTMLButtonElement;
+    #uploadButton: HTMLButtonElement;
+    #fileInput: HTMLInputElement;
+
     #npmBusy = false;
     #downloading = false;
+    #uploading = false;
     #unsubscribeNpmBusy: (() => void) | undefined;
 
     #onNpmBusyChange = (busy: boolean): void => {
@@ -50,7 +60,26 @@ export class MmSerializationControlsElement extends HTMLElement {
 
         this.#downloadButton.addEventListener("click", () => void this.#handleDownload());
 
-        this.append(this.#downloadButton);
+        this.#uploadButton = document.createElement("button");
+        this.#uploadButton.id = "upload-button";
+        this.#uploadButton.type = "button";
+        this.#uploadButton.disabled = true;
+        this.#uploadButton.setAttribute("aria-label", "Upload");
+        this.#uploadButton.append(createElement(Upload));
+
+        // The button is what's shown/clicked - the file input just supplies
+        // the native file picker, kept out of the layout since it renders as
+        // an unstyleable platform widget.
+        this.#fileInput = document.createElement("input");
+        this.#fileInput.id = "upload-input";
+        this.#fileInput.type = "file";
+        this.#fileInput.accept = ".zip,application/zip";
+        this.#fileInput.hidden = true;
+
+        this.#uploadButton.addEventListener("click", () => this.#fileInput.click());
+        this.#fileInput.addEventListener("change", () => void this.#handleUpload());
+
+        this.append(this.#downloadButton, this.#uploadButton, this.#fileInput);
     }
 
     connectedCallback(): void {
@@ -62,7 +91,10 @@ export class MmSerializationControlsElement extends HTMLElement {
     }
 
     #updateDisabled(): void {
-        this.#downloadButton.disabled = this.#npmBusy || this.#downloading;
+        const disabled = this.#npmBusy || this.#downloading || this.#uploading;
+
+        this.#downloadButton.disabled = disabled;
+        this.#uploadButton.disabled = disabled;
     }
 
     async #handleDownload(): Promise<void> {
@@ -98,6 +130,51 @@ export class MmSerializationControlsElement extends HTMLElement {
         } finally {
             this.#downloading = false;
             this.#updateDisabled();
+        }
+    }
+
+    async #handleUpload(): Promise<void> {
+        const file = this.#fileInput.files?.[0];
+        const editor = document.querySelector<MmEditorElement>("#editor");
+
+        // Cleared up front (rather than in `finally`) so re-selecting the
+        // same file still fires a fresh "change" event next time.
+        this.#fileInput.value = "";
+
+        if (!file || !editor) return;
+
+        this.#uploading = true;
+        this.#updateDisabled();
+        dispatchUploadBusy();
+        dispatchBuildOutputClear();
+        dispatchBuildOutput({ status: "info", message: "Reading uploaded archive..." });
+        document.querySelector<MmTabsElement>(`#${BUILD_TABS_ID}`)?.activatePanel(OUTPUT_PANEL_ID);
+
+        try {
+            const { source, packageJson, packageLockJson } = await parseUploadArchive(await file.arrayBuffer());
+
+            dispatchBuildOutput({ status: "info", message: "Installing dependencies..." });
+
+            const container = await bootWebContainer();
+            const result = await loadUploadedProject(
+                container,
+                { packageJson, packageLockJson },
+                chunk => dispatchTerminalOutput(chunk)
+            );
+
+            if (result.exitCode !== 0) {
+                throw new Error(result.output.trim() || `npm ci exited with code ${result.exitCode}.`);
+            }
+
+            editor.setSource(source);
+
+            dispatchBuildOutput({ status: "success", message: "Upload complete." });
+        } catch (error) {
+            dispatchBuildOutput({ status: "error", message: toErrorMessage(error) });
+        } finally {
+            this.#uploading = false;
+            this.#updateDisabled();
+            dispatchUploadIdle();
         }
     }
 }

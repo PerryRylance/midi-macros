@@ -8,6 +8,17 @@ export function isDefaultDependency(name: string): boolean {
     return (DEFAULT_DEPENDENCIES as readonly string[]).includes(name);
 }
 
+// Declares DEFAULT_DEPENDENCIES as real package.json dependencies, rather
+// than installing them via explicit `npm install <name>` args - this is what
+// lets bootWebContainer's initial install and loadUploadedProject's (below)
+// share the same "npm install/ci against whatever package.json says" step,
+// instead of the boot path needing its own special-cased package list.
+export function createDefaultPackageJson(): string {
+    const dependencies = Object.fromEntries(DEFAULT_DEPENDENCIES.map(name => [name, "*"]));
+
+    return JSON.stringify({ name: "sandbox", private: true, dependencies }, null, 4);
+}
+
 export function bootWebContainer(onOutput?: (chunk: string) => void): Promise<WebContainer> {
     if (!instance) {
         instance = WebContainer.boot({ workdirName: "workspace" }).then(async container => {
@@ -17,12 +28,12 @@ export function bootWebContainer(onOutput?: (chunk: string) => void): Promise<We
             await container.mount({
                 "package.json": {
                     file: {
-                        contents: JSON.stringify({ name: "sandbox", private: true }, null, 4)
+                        contents: createDefaultPackageJson()
                     }
                 }
             });
 
-            await runNpmCommand(container, ["install", ...DEFAULT_DEPENDENCIES], onOutput);
+            await runNpmCommand(container, ["install"], onOutput);
 
             return container;
         });
@@ -108,6 +119,30 @@ export async function runNpmCommand(
     } finally {
         endNpmWork();
     }
+}
+
+export interface UploadedProjectFiles {
+    packageJson: string;
+    packageLockJson: string;
+}
+
+// `npm ci` (rather than `npm install`) both matches the intent of "load
+// exactly this uploaded lockfile" and does its own clean reinstall (removing
+// the previous node_modules first) - no separate rm -rf step needed. It's
+// also stricter: it fails outright if package.json and package-lock.json
+// disagree, which is the validation we get "for free" per the requirement
+// that we don't need to check the uploaded JSON's integrity ourselves.
+export async function loadUploadedProject(
+    container: WebContainer,
+    files: UploadedProjectFiles,
+    onOutput?: (chunk: string) => void
+): Promise<InstallResult> {
+    await container.mount({
+        "package.json": { file: { contents: files.packageJson } },
+        "package-lock.json": { file: { contents: files.packageLockJson } }
+    });
+
+    return runNpmCommand(container, ["ci"], onOutput);
 }
 
 export async function installPackage(

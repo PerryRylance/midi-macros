@@ -14,9 +14,13 @@ We need another control that allows the user to upload a ZIP file.
 
 The ZIP file is expected to contain a performance.ts, package.json and package-lock.json. The app must handle unexpected input gracefully and feed back to the user - for example if any files are missing. We don't need to check the integrity of the JSON, npm will handle that in the Webcontainer. We don't need to check the validity of the TS code, tsserver will do that in the Webcontainer.
 
-The playback and serialization controls must be disabled during upload.
+The playback and serialization controls must be disabled during upload and processing.
 
 When uploading, we need to clear out the container. Your call whether we go through the overhead of re-creating the container, or, just rm rf node_modules and package.json / package-lock.json.
+
+After that we need to unzip the files into our working directory and run `npm install`.
+
+As an aside please could we streaming the init / example a bit here? Instead of explicitly installing `@perry-rylance/midi` and `@perry-rylance/midi-macros` it would be great if we could allow the "npm install on performance loaded" logic to handle this as well as cases where an external file has just been loaded.
 
 ## Persistance
 

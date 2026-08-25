@@ -47,3 +47,19 @@ export const BUILD_OUTPUT_CLEAR_EVENT = "mm-build-output-clear";
 export function dispatchBuildOutputClear(): void {
     document.dispatchEvent(new CustomEvent(BUILD_OUTPUT_CLEAR_EVENT));
 }
+
+export const UPLOAD_BUSY_EVENT = "mm-upload-busy";
+
+// Lets playback controls disable themselves for the *entire* span of an
+// upload (reading/validating the archive, npm ci, loading the new source
+// into the editor) - not just the npm-busy sub-window within it, which
+// webcontainer.ts's onNpmBusyChange alone wouldn't cover.
+export function dispatchUploadBusy(): void {
+    document.dispatchEvent(new CustomEvent(UPLOAD_BUSY_EVENT));
+}
+
+export const UPLOAD_IDLE_EVENT = "mm-upload-idle";
+
+export function dispatchUploadIdle(): void {
+    document.dispatchEvent(new CustomEvent(UPLOAD_IDLE_EVENT));
+}

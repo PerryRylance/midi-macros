@@ -136,6 +136,15 @@ export class MmEditorElement extends HTMLElement {
         return this.#model.getValue();
     }
 
+    // Used when loading an uploaded performance - clears highlights too,
+    // since any previously-applied decorations point at ranges in the old
+    // (now discarded) content. onDidChangeContent's existing listener picks
+    // up the change and resyncs tsserver, same as if the user had typed it.
+    setSource(source: string): void {
+        this.clearHighlights();
+        this.#model.setValue(source);
+    }
+
     // Applies (replacing any previous set) a highlight decoration for each
     // given entry - the CSS classes themselves are left for the user to
     // style, this only owns applying/clearing them as playback progresses.
