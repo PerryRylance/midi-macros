@@ -63,3 +63,12 @@ export const UPLOAD_IDLE_EVENT = "mm-upload-idle";
 export function dispatchUploadIdle(): void {
     document.dispatchEvent(new CustomEvent(UPLOAD_IDLE_EVENT));
 }
+
+export const EDITOR_CHANGED_EVENT = "mm-editor-changed";
+
+// Fires on every content change (typed or programmatic, e.g. setSource()) -
+// lets autosave.ts debounce its own save without mm-editor needing to know
+// autosave exists.
+export function dispatchEditorChanged(): void {
+    document.dispatchEvent(new CustomEvent(EDITOR_CHANGED_EVENT));
+}

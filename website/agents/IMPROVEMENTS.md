@@ -27,6 +27,8 @@ After a short period of inactivity in the editor, please can we invoke the save 
 
 When they reload, the app needs to check for that zip. If present, it should load it up, which in turn should trigger `npm install` based on what we've already written - putting the user exactly back where they were when they left.
 
+TODO: We need a preloader on the editor while a performance is loading, takes ages to restore.
+
 ## Ideas to expand on
 - MIDI output
 - Block based audio rendering

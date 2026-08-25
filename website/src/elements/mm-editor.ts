@@ -8,6 +8,7 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
 import { buildWorkerDefinition } from "monaco-editor-workers";
 import { bootWebContainer } from "../webcontainer";
 import { startTsServer } from "../tsServer";
+import { dispatchEditorChanged } from "../events";
 import { createTsServerClient, type TsServerClient, type TsServerEvent } from "../tsServerClient";
 import { createEchoFilter } from "../echoFilter";
 import { createSentMessageTracker } from "../sentMessageTracker";
@@ -104,7 +105,10 @@ export class MmEditorElement extends HTMLElement {
         this.append(this.#host);
 
         this.#model = monaco.editor.createModel(DEFAULT_SOURCE, "typescript", monaco.Uri.parse(MODEL_URI));
-        this.#model.onDidChangeContent(() => this.#scheduleDocumentSync());
+        this.#model.onDidChangeContent(() => {
+            this.#scheduleDocumentSync();
+            dispatchEditorChanged();
+        });
 
         monaco.languages.registerHoverProvider("typescript", {
             provideHover: (model, position) => this.#provideHover(model, position)
