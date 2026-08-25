@@ -1,11 +1,11 @@
 import type { WebContainer, WebContainerProcess } from "@webcontainer/api";
 
-export const PROGRAM_FILE_NAME = "program.ts";
+export const PERFORMANCE_FILE_NAME = "performance.ts";
 const ENTRY_FILE_NAME = "entry.ts";
-const COMPILED_FILE_NAME = "program.js";
+const COMPILED_FILE_NAME = "performance.js";
 const OUTPUT_FILE_NAME = "output.mid";
 const TIMELINE_FILE_NAME = "timeline.json";
-const RUNNER_FILE_NAME = "run-program.cjs";
+const RUNNER_FILE_NAME = "run-performance.cjs";
 
 export interface SourceRange {
     startLine: number;
@@ -27,7 +27,7 @@ export interface TimelineEntry extends SourceRange {
     elementRanges: SourceRange[];
 }
 
-export interface EvaluatedProgram {
+export interface EvaluatedPerformance {
     midi: ArrayBuffer;
     timeline: TimelineEntry[];
 }
@@ -37,23 +37,23 @@ export interface EvaluatedProgram {
 // case can lead with a clearer "No default export." message.
 const MISSING_DEFAULT_EXPORT_CODES = [1192, 2613];
 
-// Imports the user's program's default export and checks its type against
-// `File` - this is what makes a missing (or wrongly-typed) default export a
-// real compiler diagnostic (TS1192 or a type-assignability error) rather
-// than something we detect ourselves via an AST walk. `__eventTypeSample`
-// exists purely so the runner script below has an AST node whose *type* is
-// exactly `Event` from @perry-rylance/midi, to compare event constructor
-// calls in the user's program against.
+// Imports the user's performance's default export and checks its type
+// against `File` - this is what makes a missing (or wrongly-typed) default
+// export a real compiler diagnostic (TS1192 or a type-assignability error)
+// rather than something we detect ourselves via an AST walk.
+// `__eventTypeSample` exists purely so the runner script below has an AST
+// node whose *type* is exactly `Event` from @perry-rylance/midi, to compare
+// event constructor calls in the user's performance against.
 const ENTRY_SCRIPT = `
-import program from "./${PROGRAM_FILE_NAME.replace(/\.ts$/, "")}";
+import performance from "./${PERFORMANCE_FILE_NAME.replace(/\.ts$/, "")}";
 import { File, type Event as __Event } from "@perry-rylance/midi";
 
-const _defaultExport: File = program;
+const _defaultExport: File = performance;
 declare const __eventTypeSample: __Event;
 `;
 
 // Runs inside the WebContainer sandbox via plain require() (not bundled by
-// Vite) - that's what lets the user's program resolve whatever packages
+// Vite) - that's what lets the user's performance resolve whatever packages
 // they've npm-installed via the Packages tab, including @perry-rylance/midi,
 // through Node's own module resolution.
 const RUNNER_SCRIPT = `
@@ -75,11 +75,11 @@ const compilerOptions = {
 const tsProgram = ts.createProgram([${JSON.stringify(ENTRY_FILE_NAME)}], compilerOptions);
 
 // Scoped to entry.ts specifically (not ts.getPreEmitDiagnostics(tsProgram),
-// which would also include every diagnostic inside the user's own program.ts)
-// - this check is only about whether program.ts has a valid default export,
-// not a general type-checker gate on the user's code. Anything else wrong
-// with their program (a typo, a runtime bug) still only surfaces by actually
-// running it, same as before.
+// which would also include every diagnostic inside the user's own
+// performance.ts) - this check is only about whether performance.ts has a
+// valid default export, not a general type-checker gate on the user's code.
+// Anything else wrong with their performance (a typo, a runtime bug) still
+// only surfaces by actually running it, same as before.
 const entryFile = tsProgram.getSourceFile(${JSON.stringify(ENTRY_FILE_NAME)});
 const diagnostics = [
     ...tsProgram.getSyntacticDiagnostics(entryFile),
@@ -105,8 +105,8 @@ if (diagnostics.length > 0) {
 
 // Finds the Event type from @perry-rylance/midi via the "__eventTypeSample"
 // marker declared in entry.ts, so event constructor calls in the user's
-// program can be checked for assignability to it (a real type check, not a
-// name heuristic like "ends with Event").
+// performance can be checked for assignability to it (a real type check,
+// not a name heuristic like "ends with Event").
 const checker = tsProgram.getTypeChecker();
 let eventType;
 ts.forEachChild(entryFile, node => {
@@ -262,10 +262,10 @@ function createTaggingTransformer(context) {
     };
 }
 
-const programSourceFile = tsProgram.getSourceFile(${JSON.stringify(PROGRAM_FILE_NAME)});
+const performanceSourceFile = tsProgram.getSourceFile(${JSON.stringify(PERFORMANCE_FILE_NAME)});
 let emitted = "";
 
-tsProgram.emit(programSourceFile, (_fileName, text) => {
+tsProgram.emit(performanceSourceFile, (_fileName, text) => {
     emitted = text;
 }, undefined, false, { before: [createTaggingTransformer] });
 
@@ -315,7 +315,7 @@ resolver.tracks.forEach((track, trackIndex) => {
 fs.writeFileSync(${JSON.stringify(TIMELINE_FILE_NAME)}, JSON.stringify(timeline));
 `;
 
-export class ProgramEvaluationError extends Error {}
+export class PerformanceEvaluationError extends Error {}
 
 async function collectOutput(process: WebContainerProcess): Promise<string> {
     const reader = process.output.getReader();
@@ -335,8 +335,8 @@ async function collectOutput(process: WebContainerProcess): Promise<string> {
 // Requires `typescript` and `@perry-rylance/midi-to-milliseconds` to already
 // be installed in the container - callers ensure this via startTsServer(),
 // which mm-editor already invokes on mount.
-export async function evaluateProgram(container: WebContainer, source: string): Promise<EvaluatedProgram> {
-    await container.fs.writeFile(PROGRAM_FILE_NAME, source);
+export async function evaluatePerformance(container: WebContainer, source: string): Promise<EvaluatedPerformance> {
+    await container.fs.writeFile(PERFORMANCE_FILE_NAME, source);
     await container.fs.writeFile(ENTRY_FILE_NAME, ENTRY_SCRIPT);
     await container.fs.writeFile(RUNNER_FILE_NAME, RUNNER_SCRIPT);
 
@@ -345,7 +345,7 @@ export async function evaluateProgram(container: WebContainer, source: string): 
     const exitCode = await process.exit;
 
     if (exitCode !== 0) {
-        throw new ProgramEvaluationError(output.trim() || `Program exited with code ${exitCode}.`);
+        throw new PerformanceEvaluationError(output.trim() || `Performance exited with code ${exitCode}.`);
     }
 
     const midiBytes = await container.fs.readFile(OUTPUT_FILE_NAME);

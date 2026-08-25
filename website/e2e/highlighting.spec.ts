@@ -13,13 +13,13 @@ async function replaceEditorContent(page: import("@playwright/test").Page, text:
     await page.keyboard.type(text);
 }
 
-// Deliberately not the default program (there's a known, separate issue with
+// Deliberately not the default performance (there's a known, separate issue with
 // it being tracked down independently) - a NoteOnEvent at time 0, and a
 // NoteOffEvent a comfortable ~5s later (480 ticks = 500ms at the default
 // tempo/resolution, so delta 4800 = ~5s), giving the first assertion below a
 // wide window to reliably catch the NoteOnEvent highlight before it's
 // replaced, rather than racing exact frame timing.
-const SIMPLE_PROGRAM =
+const SIMPLE_PERFORMANCE =
     'import { File, Track, NoteOnEvent, NoteOffEvent } from "@perry-rylance/midi";\n\n' +
     "export default new File().tracks([\n" +
     "    new Track().events([\n" +
@@ -35,7 +35,7 @@ test("highlights the MIDI event constructor currently playing", async ({ page })
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, SIMPLE_PROGRAM);
+    await replaceEditorContent(page, SIMPLE_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 
@@ -53,7 +53,7 @@ test("highlights the MIDI event constructor currently playing", async ({ page })
 
 // Short (480 ticks = ~500ms after the NoteOn), so the song ends on its own
 // quickly without needing to press Stop.
-const SHORT_PROGRAM =
+const SHORT_PERFORMANCE =
     'import { File, Track, NoteOnEvent, NoteOffEvent } from "@perry-rylance/midi";\n\n' +
     "export default new File().tracks([\n" +
     "    new Track().events([\n" +
@@ -69,7 +69,7 @@ test("clears highlights once the song finishes playing on its own", async ({ pag
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, SHORT_PROGRAM);
+    await replaceEditorContent(page, SHORT_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 
@@ -82,8 +82,8 @@ test("clears highlights once the song finishes playing on its own", async ({ pag
 // A note built inside .flatMap() over a *named* array (not an inline
 // literal) - the common "musical pattern" shape from agents/SPIKE.md.
 // Comfortable ~5s gaps (delta 4800) between notes, same reasoning as
-// SIMPLE_PROGRAM above.
-const PATTERN_PROGRAM =
+// SIMPLE_PERFORMANCE above.
+const PATTERN_PERFORMANCE =
     'import { File, Track, NoteOnEvent, NoteOffEvent } from "@perry-rylance/midi";\n\n' +
     "const notes = [60, 64, 67];\n\n" +
     "export default new File().tracks([\n" +
@@ -102,7 +102,7 @@ test("highlights the current array element for a note built inside .flatMap over
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, PATTERN_PROGRAM);
+    await replaceEditorContent(page, PATTERN_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 
@@ -126,7 +126,7 @@ test("highlights the current array element for a note built inside .flatMap over
 // to constructor-only highlighting, with no element highlight at all. Needs
 // a real duration (delta 4800 on the last note) - with none, the "song" ends
 // near-instantly and there's nothing to reliably observe.
-const FILTERED_PROGRAM =
+const FILTERED_PERFORMANCE =
     'import { File, Track, NoteOnEvent, NoteOffEvent } from "@perry-rylance/midi";\n\n' +
     "const notes = [60, 64, 67];\n\n" +
     "export default new File().tracks([\n" +
@@ -143,7 +143,7 @@ test("does not highlight an array element when the iterated array can't be trace
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, FILTERED_PROGRAM);
+    await replaceEditorContent(page, FILTERED_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 
@@ -158,7 +158,7 @@ test("clears highlights when Stop is pressed", async ({ page }) => {
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    await replaceEditorContent(page, SIMPLE_PROGRAM);
+    await replaceEditorContent(page, SIMPLE_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 

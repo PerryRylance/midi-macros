@@ -1,7 +1,7 @@
 import type { WebContainer, WebContainerProcess } from "@webcontainer/api";
 import { runNpmCommand } from "./webcontainer";
 
-// Tooling used by our own code (the language server, and the program
+// Tooling used by our own code (the language server, and the performance
 // evaluator's event-timing resolution) - not user-facing packages, so kept
 // separate from webcontainer.ts's DEFAULT_DEPENDENCIES.
 export const TOOLING_DEPENDENCIES = ["typescript@5.9.3", "@perry-rylance/midi-to-milliseconds"] as const;

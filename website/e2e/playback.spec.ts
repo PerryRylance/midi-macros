@@ -37,7 +37,7 @@ test("disables the controls until the SoundFont finishes loading", async ({ page
     await expect(controls.getByRole("button", { name: "Stop" })).toBeEnabled();
 });
 
-test("renders and plays the editor's default program, then pauses and stops", async ({ page }) => {
+test("renders and plays the editor's default performance, then pauses and stops", async ({ page }) => {
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
@@ -81,7 +81,7 @@ test("switches to the Output tab when Play is pressed", async ({ page }) => {
     await expect(page.locator("#tab-terminal")).toBeHidden();
 });
 
-test("shows a runtime ReferenceError from the program in the build output", async ({ page }) => {
+test("shows a runtime ReferenceError from the performance in the build output", async ({ page }) => {
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
@@ -103,7 +103,7 @@ test("shows a runtime ReferenceError from the program in the build output", asyn
     });
 });
 
-test("shows 'No default export' in the build output for a program with no default export", async ({ page }) => {
+test("shows 'No default export' in the build output for a performance with no default export", async ({ page }) => {
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
@@ -112,7 +112,7 @@ test("shows 'No default export' in the build output for a program with no defaul
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
     // No default export at all - this is a real TypeScript compiler
-    // diagnostic (see programEvaluator.ts), not a check we run ourselves.
+    // diagnostic (see performanceEvaluator.ts), not a check we run ourselves.
     await replaceEditorContent(page, "export const x = 1;");
 
     await controls.getByRole("button", { name: "Play" }).click();
@@ -120,7 +120,7 @@ test("shows 'No default export' in the build output for a program with no defaul
     await expect(output).toContainText("No default export", { timeout: 60_000 });
 });
 
-test("shows a success message in the build output for a program that builds cleanly", async ({ page }) => {
+test("shows a success message in the build output for a performance that builds cleanly", async ({ page }) => {
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
@@ -128,9 +128,9 @@ test("shows a success message in the build output for a program that builds clea
     await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
 
     await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
-    // Deliberately not the default program (there's a known, separate issue
-    // with it being tracked down independently) - this is the simplest
-    // possible program known to build cleanly.
+    // Deliberately not the default performance (there's a known, separate
+    // issue with it being tracked down independently) - this is the simplest
+    // possible performance known to build cleanly.
     await replaceEditorContent(page, 'import { File } from "@perry-rylance/midi";\nexport default new File();');
 
     await controls.getByRole("button", { name: "Play" }).click();

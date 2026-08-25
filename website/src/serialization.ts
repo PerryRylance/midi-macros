@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { PROGRAM_FILE_NAME } from "./programEvaluator";
+import { PERFORMANCE_FILE_NAME } from "./performanceEvaluator";
 
 export interface DownloadArchiveInput {
     source: string;
@@ -10,7 +10,7 @@ export interface DownloadArchiveInput {
 export async function buildDownloadArchive(input: DownloadArchiveInput): Promise<Blob> {
     const zip = new JSZip();
 
-    zip.file(PROGRAM_FILE_NAME, input.source);
+    zip.file(PERFORMANCE_FILE_NAME, input.source);
     zip.file("package.json", input.packageJson);
     zip.file("package-lock.json", input.packageLockJson);
 
@@ -24,7 +24,7 @@ export interface UploadedArchiveFiles {
     packageLockJson: string;
 }
 
-const REQUIRED_ARCHIVE_FILES = [PROGRAM_FILE_NAME, "package.json", "package-lock.json"] as const;
+const REQUIRED_ARCHIVE_FILES = [PERFORMANCE_FILE_NAME, "package.json", "package-lock.json"] as const;
 
 // Deliberately doesn't validate the JSON's integrity or the TS source's
 // validity - npm and tsserver already do that once the files reach the
@@ -49,7 +49,7 @@ export async function parseUploadArchive(data: Blob | ArrayBuffer): Promise<Uplo
     }
 
     const [source, packageJson, packageLockJson] = await Promise.all([
-        zip.file(PROGRAM_FILE_NAME)!.async("string"),
+        zip.file(PERFORMANCE_FILE_NAME)!.async("string"),
         zip.file("package.json")!.async("string"),
         zip.file("package-lock.json")!.async("string")
     ]);

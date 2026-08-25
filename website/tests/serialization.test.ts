@@ -8,7 +8,7 @@ const VALID_FILES = {
     packageLockJson: "{\"lockfileVersion\":3}"
 };
 
-function buildZip(files: Partial<Record<"program.ts" | "package.json" | "package-lock.json", string>>): Promise<ArrayBuffer> {
+function buildZip(files: Partial<Record<"performance.ts" | "package.json" | "package-lock.json", string>>): Promise<ArrayBuffer> {
     const zip = new JSZip();
 
     for (const [name, contents] of Object.entries(files)) {
@@ -19,7 +19,7 @@ function buildZip(files: Partial<Record<"program.ts" | "package.json" | "package
 }
 
 describe("buildDownloadArchive", () => {
-    it("zips the program source, package.json and package-lock.json under fixed names", async () => {
+    it("zips the performance source, package.json and package-lock.json under fixed names", async () => {
         const blob = await buildDownloadArchive({
             source: "export default 1;\n",
             packageJson: "{\"name\":\"sandbox\"}",
@@ -28,8 +28,8 @@ describe("buildDownloadArchive", () => {
 
         const zip = await JSZip.loadAsync(await blob.arrayBuffer());
 
-        expect(Object.keys(zip.files).sort()).toEqual(["package-lock.json", "package.json", "program.ts"]);
-        expect(await zip.file("program.ts")!.async("string")).toBe("export default 1;\n");
+        expect(Object.keys(zip.files).sort()).toEqual(["package-lock.json", "package.json", "performance.ts"]);
+        expect(await zip.file("performance.ts")!.async("string")).toBe("export default 1;\n");
         expect(await zip.file("package.json")!.async("string")).toBe("{\"name\":\"sandbox\"}");
         expect(await zip.file("package-lock.json")!.async("string")).toBe("{\"lockfileVersion\":3}");
     });
@@ -48,9 +48,9 @@ describe("buildDownloadArchive", () => {
 });
 
 describe("parseUploadArchive", () => {
-    it("extracts the program source, package.json and package-lock.json", async () => {
+    it("extracts the performance source, package.json and package-lock.json", async () => {
         const archive = await buildZip({
-            "program.ts": VALID_FILES.source,
+            "performance.ts": VALID_FILES.source,
             "package.json": VALID_FILES.packageJson,
             "package-lock.json": VALID_FILES.packageLockJson
         });
@@ -62,7 +62,7 @@ describe("parseUploadArchive", () => {
 
     it("rejects an archive missing package-lock.json, naming it", async () => {
         const archive = await buildZip({
-            "program.ts": VALID_FILES.source,
+            "performance.ts": VALID_FILES.source,
             "package.json": VALID_FILES.packageJson
         });
 
@@ -71,7 +71,7 @@ describe("parseUploadArchive", () => {
     });
 
     it("rejects an archive missing multiple files, naming all of them", async () => {
-        const archive = await buildZip({ "program.ts": VALID_FILES.source });
+        const archive = await buildZip({ "performance.ts": VALID_FILES.source });
 
         await expect(parseUploadArchive(archive)).rejects.toThrow(/package\.json/);
         await expect(parseUploadArchive(archive)).rejects.toThrow(/package-lock\.json/);

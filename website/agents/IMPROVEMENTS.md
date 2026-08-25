@@ -23,6 +23,9 @@ After that we need to unzip the files into our working directory and run `npm in
 As an aside please could we streaming the init / example a bit here? Instead of explicitly installing `@perry-rylance/midi` and `@perry-rylance/midi-macros` it would be great if we could allow the "npm install on performance loaded" logic to handle this as well as cases where an external file has just been loaded.
 
 ## Persistance
+After a short period of inactivity in the editor, please can we invoke the save mechanism but rather than downloading to a file please store the compressed data in the users localStorage (or wherever is appropriate).
+
+When they reload, the app needs to check for that zip. If present, it should load it up, which in turn should trigger `npm install` based on what we've already written - putting the user exactly back where they were when they left.
 
 ## Ideas to expand on
 - MIDI output

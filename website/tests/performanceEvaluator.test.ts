@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { evaluateProgram, ProgramEvaluationError } from "../src/programEvaluator";
+import { evaluatePerformance, PerformanceEvaluationError } from "../src/performanceEvaluator";
 
 function createFakeContainer(
     options: { exitCode?: number; output?: string; midiBytes?: Uint8Array; timeline?: unknown[] } = {}
@@ -32,41 +32,41 @@ function createFakeContainer(
     return { container, writeFile, readFile, spawn };
 }
 
-describe("evaluateProgram", () => {
-    it("writes the program source to the container before running it", async () => {
+describe("evaluatePerformance", () => {
+    it("writes the performance source to the container before running it", async () => {
         const { container, writeFile } = createFakeContainer();
 
-        await evaluateProgram(container, "export default 1;");
+        await evaluatePerformance(container, "export default 1;");
 
-        expect(writeFile).toHaveBeenCalledWith("program.ts", "export default 1;");
+        expect(writeFile).toHaveBeenCalledWith("performance.ts", "export default 1;");
     });
 
     it("spawns node against a runner script written to the container", async () => {
         const { container, writeFile, spawn } = createFakeContainer();
 
-        await evaluateProgram(container, "export default 1;");
+        await evaluatePerformance(container, "export default 1;");
 
-        const [runnerPath, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-program.cjs")!;
+        const [runnerPath, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-performance.cjs")!;
         expect(spawn).toHaveBeenCalledWith("node", [runnerPath]);
         expect(runnerScript).toContain("toArrayBuffer");
     });
 
-    it("writes an entry file that type-checks the program's default export against File", async () => {
+    it("writes an entry file that type-checks the performance's default export against File", async () => {
         const { container, writeFile } = createFakeContainer();
 
-        await evaluateProgram(container, "export default 1;");
+        await evaluatePerformance(container, "export default 1;");
 
         const [, entryScript] = writeFile.mock.calls.find(call => call[0] === "entry.ts")!;
-        expect(entryScript).toContain('from "./program"');
+        expect(entryScript).toContain('from "./performance"');
         expect(entryScript).toContain('from "@perry-rylance/midi"');
     });
 
     it("relies on a real TypeScript diagnostic (not an AST check of its own) to catch a missing default export", async () => {
         const { container, writeFile } = createFakeContainer();
 
-        await evaluateProgram(container, "export default 1;");
+        await evaluatePerformance(container, "export default 1;");
 
-        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-program.cjs")!;
+        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-performance.cjs")!;
         expect(runnerScript).toContain("getSemanticDiagnostics");
         expect(runnerScript).toContain("No default export.");
     });
@@ -75,7 +75,7 @@ describe("evaluateProgram", () => {
         const midiBytes = new Uint8Array([0x4d, 0x54, 0x68, 0x64]);
         const { container, readFile } = createFakeContainer({ midiBytes });
 
-        const result = await evaluateProgram(container, "export default 1;");
+        const result = await evaluatePerformance(container, "export default 1;");
 
         expect(readFile).toHaveBeenCalledWith("output.mid");
         expect(new Uint8Array(result.midi)).toEqual(midiBytes);
@@ -85,7 +85,7 @@ describe("evaluateProgram", () => {
         const timeline = [{ trackIndex: 0, ticks: 0, milliseconds: 0, startLine: 3, startColumn: 9, endLine: 3, endColumn: 30 }];
         const { container, readFile } = createFakeContainer({ timeline });
 
-        const result = await evaluateProgram(container, "export default 1;");
+        const result = await evaluatePerformance(container, "export default 1;");
 
         expect(readFile).toHaveBeenCalledWith("timeline.json", "utf-8");
         expect(result.timeline).toEqual(timeline);
@@ -94,7 +94,7 @@ describe("evaluateProgram", () => {
     it("resolves with an empty timeline when the runner produced none", async () => {
         const { container } = createFakeContainer({ timeline: [] });
 
-        const result = await evaluateProgram(container, "export default 1;");
+        const result = await evaluatePerformance(container, "export default 1;");
 
         expect(result.timeline).toEqual([]);
     });
@@ -102,9 +102,9 @@ describe("evaluateProgram", () => {
     it("relies on a real TypeScript type check (not a name heuristic) to find taggable Event constructors", async () => {
         const { container, writeFile } = createFakeContainer();
 
-        await evaluateProgram(container, "export default 1;");
+        await evaluatePerformance(container, "export default 1;");
 
-        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-program.cjs")!;
+        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-performance.cjs")!;
         // The tagging pass must use the type checker (assignability to Event
         // from @perry-rylance/midi), not a name-based guess like "ends with
         // Event" - the latter would also be fooled by an unrelated class the
@@ -116,22 +116,22 @@ describe("evaluateProgram", () => {
     it("threads an iteration context through .map()/.forEach()/.flatMap() callbacks for element-level highlighting", async () => {
         const { container, writeFile } = createFakeContainer();
 
-        await evaluateProgram(container, "export default 1;");
+        await evaluatePerformance(container, "export default 1;");
 
-        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-program.cjs")!;
+        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-performance.cjs")!;
         expect(runnerScript).toContain("__iterationStack");
         expect(runnerScript).toContain('"map"');
         expect(runnerScript).toContain('"forEach"');
         expect(runnerScript).toContain('"flatMap"');
     });
 
-    it("throws a ProgramEvaluationError with the collected output when the process exits non-zero", async () => {
+    it("throws a PerformanceEvaluationError with the collected output when the process exits non-zero", async () => {
         const { container } = createFakeContainer({
             exitCode: 1,
             output: "TSError: Default export is not a MIDI File instance."
         });
 
-        await expect(evaluateProgram(container, "export default 1;")).rejects.toThrow(ProgramEvaluationError);
+        await expect(evaluatePerformance(container, "export default 1;")).rejects.toThrow(PerformanceEvaluationError);
     });
 
     it("includes the collected process output in the thrown error message", async () => {
@@ -140,7 +140,7 @@ describe("evaluateProgram", () => {
             output: "TSError: Default export is not a MIDI File instance."
         });
 
-        await expect(evaluateProgram(container, "export default 1;")).rejects.toThrow(
+        await expect(evaluatePerformance(container, "export default 1;")).rejects.toThrow(
             /Default export is not a MIDI File instance/
         );
     });
@@ -148,6 +148,6 @@ describe("evaluateProgram", () => {
     it("falls back to a generic message when a failing process produced no output", async () => {
         const { container } = createFakeContainer({ exitCode: 1, output: "" });
 
-        await expect(evaluateProgram(container, "export default 1;")).rejects.toThrow(/exited with code 1/);
+        await expect(evaluatePerformance(container, "export default 1;")).rejects.toThrow(/exited with code 1/);
     });
 });

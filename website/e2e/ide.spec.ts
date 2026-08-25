@@ -21,9 +21,10 @@ test("editor loads with the default source", async ({ page }) => {
 });
 
 // A missing default export is no longer flagged by our own client-side
-// check - see programEvaluator.ts and e2e/playback.spec.ts, where it's now a
-// real TypeScript compiler diagnostic surfaced through the build output when
-// the program is actually run, rather than a live Monaco marker.
+// check - see performanceEvaluator.ts and e2e/playback.spec.ts, where it's
+// now a real TypeScript compiler diagnostic surfaced through the build
+// output when the performance is actually run, rather than a live Monaco
+// marker.
 test("shows a real diagnostic from tsserver", async ({ page }) => {
     await page.goto("/");
 

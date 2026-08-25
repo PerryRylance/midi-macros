@@ -34,8 +34,8 @@ export interface BuildOutputDetail {
 }
 
 // Lets the playback engine report progress/results of rendering and playing
-// the editor's program to the "Output" tab, without it needing to know that
-// tab exists. Every line is appended, never replaces a previous one.
+// the editor's performance to the "Output" tab, without it needing to know
+// that tab exists. Every line is appended, never replaces a previous one.
 export function dispatchBuildOutput(detail: BuildOutputDetail): void {
     document.dispatchEvent(new CustomEvent<BuildOutputDetail>(BUILD_OUTPUT_EVENT, { detail }));
 }

@@ -1,7 +1,7 @@
 import { createElement, Pause, Play, Square } from "lucide";
 import { bootWebContainer } from "../webcontainer";
 import { startTsServer } from "../tsServer";
-import { evaluateProgram, type TimelineEntry } from "../programEvaluator";
+import { evaluatePerformance, type TimelineEntry } from "../performanceEvaluator";
 import {
     dispatchBuildOutput,
     dispatchBuildOutputClear,
@@ -170,10 +170,10 @@ export class MmPlaybackControlsElement extends HTMLElement {
             const container = await bootWebContainer();
             await startTsServer(container);
 
-            const { midi, timeline } = await evaluateProgram(container, source);
+            const { midi, timeline } = await evaluatePerformance(container, source);
 
             await this.#output.addSoundBank(this.#soundfont.name, this.#soundfont.buffer);
-            this.#output.load(midi, "program");
+            this.#output.load(midi, "performance");
 
             this.#timeline = timeline;
             this.#lastHighlightMs = 0;

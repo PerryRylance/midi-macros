@@ -47,7 +47,7 @@ async function buildUploadFixture(page: Page, source: string): Promise<Buffer> {
     const { packageJson, packageLockJson } = await downloadCurrentProjectFiles(page);
 
     const zip = new JSZip();
-    zip.file("program.ts", source);
+    zip.file("performance.ts", source);
     zip.file("package.json", packageJson);
     zip.file("package-lock.json", packageLockJson);
 
@@ -73,7 +73,7 @@ test("shows an Upload button in the toolbar", async ({ page }) => {
     await expect(controls.getByRole("button", { name: "Upload" })).toBeVisible();
 });
 
-test("uploads a zip, replacing the editor's program and reinstalling dependencies", async ({ page }) => {
+test("uploads a zip, replacing the editor's performance and reinstalling dependencies", async ({ page }) => {
     await page.goto("/");
 
     const controls = page.locator("#serialization-controls");
@@ -94,7 +94,7 @@ test("uploads a zip, replacing the editor's program and reinstalling dependencie
     await expect(editorRoot(page)).toContainText(UPLOAD_MARKER);
 
     // The uploaded project's dependencies were reinstalled, not just its
-    // source swapped in - Play should still work against the new program.
+    // source swapped in - Play should still work against the new performance.
     const playbackControls = page.locator("#playback-controls");
     await expect(playbackControls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 60_000 });
     await playbackControls.getByRole("button", { name: "Play" }).click();
@@ -140,10 +140,10 @@ test("shows an error and leaves playback usable when the archive is missing a re
     const uploadButton = page.locator("#serialization-controls").getByRole("button", { name: "Upload" });
     const output = page.locator("#build-output-message");
 
-    await expect(uploadButton).toBeEnabled({ timeout: 30_000 });
+    await waitUntilContainerSettled(uploadButton);
 
     const zip = new JSZip();
-    zip.file("program.ts", MARKER_SOURCE);
+    zip.file("performance.ts", MARKER_SOURCE);
     zip.file("package.json", "{}");
     // package-lock.json deliberately omitted.
     const archive = await zip.generateAsync({ type: "nodebuffer" });
@@ -167,7 +167,7 @@ test("shows an error for a file that isn't a valid ZIP", async ({ page }) => {
     const uploadButton = page.locator("#serialization-controls").getByRole("button", { name: "Upload" });
     const output = page.locator("#build-output-message");
 
-    await expect(uploadButton).toBeEnabled({ timeout: 30_000 });
+    await waitUntilContainerSettled(uploadButton);
 
     await page.locator("#upload-input").setInputFiles({
         name: "not-a-zip.zip",
