@@ -1,6 +1,6 @@
 import type { WebContainer, WebContainerProcess } from "@webcontainer/api";
 
-const PROGRAM_FILE_NAME = "program.ts";
+export const PROGRAM_FILE_NAME = "program.ts";
 const ENTRY_FILE_NAME = "entry.ts";
 const COMPILED_FILE_NAME = "program.js";
 const OUTPUT_FILE_NAME = "output.mid";
