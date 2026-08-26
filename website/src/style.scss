@@ -263,6 +263,11 @@ mm-editor
 
         background-color: rgba(255, 255, 255, 0.5);
         background-image: url("data:image/svg+xml,%3Csvg width='37' height='37' viewBox='0 0 37 37' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill-rule='evenodd' clip-rule='evenodd' d='M37 0H18L0 18V37L37 0ZM0 55V74L37 37V18L0 55ZM37 55L0 92H19L37 74V55Z' fill='rgba(185,186,240,.1)'/%3E%3Cstyle%3E path %7B animation: slide 1s infinite linear; %7D @keyframes slide %7B from %7B transform: translateY(0); %7D to %7B transform: translateY(-37px); %7D %7D%0A%3C/style%3E%3C/svg%3E%0A");
+
+        &[hidden]
+        {
+            display: none;
+        }
     }
 
     .mm-highlighted-event, .mm-highlighted-element

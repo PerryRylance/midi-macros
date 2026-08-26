@@ -89,12 +89,21 @@ export class MmEditorElement extends HTMLElement {
     #tsServerClient: TsServerClient | undefined;
     #syncTimer: ReturnType<typeof setTimeout> | undefined;
 
+    // Toggles the inline `display` alongside `hidden` - an inline style
+    // always wins over any external stylesheet rule regardless of selector
+    // specificity, whereas the `hidden` attribute alone can be overridden by
+    // a same-element ID rule (e.g. one setting `display: flex` for the
+    // visible/interaction-blocking state) beating the UA's own `[hidden]`
+    // rule. `hidden` is still kept in sync since it's what assistive tech
+    // and `:not([hidden])`-style selectors actually key off.
     #onUploadBusy = (): void => {
         this.#preloader.hidden = false;
+        this.#preloader.style.display = "";
     };
 
     #onUploadIdle = (): void => {
         this.#preloader.hidden = true;
+        this.#preloader.style.display = "none";
     };
 
     constructor() {
@@ -115,6 +124,7 @@ export class MmEditorElement extends HTMLElement {
         this.#preloader = document.createElement("div");
         this.#preloader.id = "preloader";
         this.#preloader.hidden = true;
+        this.#preloader.style.display = "none";
         this.#preloader.append(document.createElement("progress"));
 
         this.style.display = "flex";

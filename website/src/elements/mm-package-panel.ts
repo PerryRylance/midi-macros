@@ -1,7 +1,6 @@
 import type { WebContainer } from "@webcontainer/api";
 import {
     bootWebContainer,
-    DEFAULT_DEPENDENCIES,
     installPackage,
     isDefaultDependency,
     listInstalledPackages,
@@ -20,17 +19,14 @@ function switchToTerminalTab(): void {
 
 export class MmPackagePanelElement extends HTMLElement {
     #container: WebContainer | undefined;
-    #status: HTMLParagraphElement;
+    #dialog: HTMLDialogElement;
     #input: HTMLInputElement;
     #installButton: HTMLButtonElement;
     #packageList: HTMLUListElement;
+    #addPackageItem: HTMLLIElement;
 
     constructor() {
         super();
-
-        this.#status = document.createElement("p");
-        this.#status.id = "status";
-        this.#status.textContent = "Loading...";
 
         const label = document.createElement("label");
         label.htmlFor = "package-name";
@@ -48,18 +44,38 @@ export class MmPackagePanelElement extends HTMLElement {
         this.#installButton.textContent = "Install";
         this.#installButton.disabled = true;
 
+        const cancelButton = document.createElement("button");
+        cancelButton.id = "cancel-add-package-button";
+        cancelButton.type = "button";
+        cancelButton.textContent = "Cancel";
+        cancelButton.addEventListener("click", () => this.#dialog.close());
+
         const form = document.createElement("form");
         form.id = "install-form";
-        form.append(label, this.#input, this.#installButton);
+        form.append(label, this.#input, this.#installButton, cancelButton);
         form.addEventListener("submit", event => this.#handleSubmit(event));
 
-        const heading = document.createElement("h2");
-        heading.textContent = "Installed packages";
+        const dialogHeading = document.createElement("h2");
+        dialogHeading.textContent = "Add package";
+
+        this.#dialog = document.createElement("dialog");
+        this.#dialog.id = "add-package-dialog";
+        this.#dialog.append(dialogHeading, form);
+
+        this.#addPackageItem = document.createElement("li");
+
+        const addPackageButton = document.createElement("button");
+        addPackageButton.id = "add-package-button";
+        addPackageButton.type = "button";
+        addPackageButton.textContent = "Add package";
+        addPackageButton.addEventListener("click", () => this.#dialog.showModal());
+
+        this.#addPackageItem.append(addPackageButton);
 
         this.#packageList = document.createElement("ul");
         this.#packageList.id = "package-list";
 
-        this.append(this.#status, form, heading, this.#packageList);
+        this.append(this.#dialog, this.#packageList);
     }
 
     connectedCallback(): void {
@@ -68,13 +84,12 @@ export class MmPackagePanelElement extends HTMLElement {
 
     async #boot(): Promise<void> {
         switchToTerminalTab();
-        dispatchTerminalOutput(`$ npm install ${DEFAULT_DEPENDENCIES.join(" ")}\n`);
+        dispatchTerminalOutput("$ npm install\n");
 
         this.#container = await bootWebContainer(chunk => dispatchTerminalOutput(chunk));
 
         await this.#refreshPackageList();
 
-        this.#status.textContent = "Ready.";
         this.#setBusy(false);
     }
 
@@ -92,7 +107,7 @@ export class MmPackagePanelElement extends HTMLElement {
 
         const packages = await listInstalledPackages(this.#container);
 
-        this.#packageList.replaceChildren(...packages.map(name => this.#buildPackageItem(name)));
+        this.#packageList.replaceChildren(...packages.map(name => this.#buildPackageItem(name)), this.#addPackageItem);
     }
 
     #buildPackageItem(name: string): HTMLLIElement {
@@ -115,19 +130,14 @@ export class MmPackagePanelElement extends HTMLElement {
         return item;
     }
 
-    async #run(operation: () => Promise<InstallResult>, verb: string, name: string): Promise<void> {
+    async #run(operation: () => Promise<InstallResult>): Promise<void> {
         switchToTerminalTab();
         this.#setBusy(true);
 
         try {
-            const result = await operation();
-
-            this.#status.textContent = result.exitCode === 0
-                ? `${verb} ${name}.`
-                : `Failed to ${verb.toLowerCase()} ${name}.`;
+            await operation();
         } catch (error) {
             dispatchTerminalOutput(`${error instanceof Error ? error.message : String(error)}\n`);
-            this.#status.textContent = "Error.";
         } finally {
             await this.#refreshPackageList();
             this.#setBusy(false);
@@ -142,13 +152,10 @@ export class MmPackagePanelElement extends HTMLElement {
         const name = this.#input.value.trim();
         const container = this.#container;
 
+        this.#dialog.close();
         dispatchTerminalOutput(`$ npm install ${name}\n`);
 
-        await this.#run(
-            () => installPackage(container, name, chunk => dispatchTerminalOutput(chunk)),
-            "Installed",
-            name
-        );
+        await this.#run(() => installPackage(container, name, chunk => dispatchTerminalOutput(chunk)));
     }
 
     async #removePackage(name: string): Promise<void> {
@@ -158,11 +165,7 @@ export class MmPackagePanelElement extends HTMLElement {
 
         dispatchTerminalOutput(`$ npm uninstall ${name}\n`);
 
-        await this.#run(
-            () => uninstallPackage(container, name, chunk => dispatchTerminalOutput(chunk)),
-            "Removed",
-            name
-        );
+        await this.#run(() => uninstallPackage(container, name, chunk => dispatchTerminalOutput(chunk)));
     }
 }
 

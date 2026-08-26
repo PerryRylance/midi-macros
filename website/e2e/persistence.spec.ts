@@ -47,6 +47,7 @@ test("saves the performance after a period of inactivity and restores it on relo
 
     const reloadedControls = page.locator("#playback-controls");
     await expect(reloadedControls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 60_000 });
+    await expect(page.locator("#preloader")).toBeHidden();
     await reloadedControls.getByRole("button", { name: "Play" }).click();
     await expect(page.locator("#build-output-message")).toContainText("Build successful.", { timeout: 60_000 });
 });
