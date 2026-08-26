@@ -8,7 +8,7 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
 import { buildWorkerDefinition } from "monaco-editor-workers";
 import { bootWebContainer } from "../webcontainer";
 import { startTsServer } from "../tsServer";
-import { dispatchEditorChanged } from "../events";
+import { dispatchEditorChanged, UPLOAD_BUSY_EVENT, UPLOAD_IDLE_EVENT } from "../events";
 import { createTsServerClient, type TsServerClient, type TsServerEvent } from "../tsServerClient";
 import { createEchoFilter } from "../echoFilter";
 import { createSentMessageTracker } from "../sentMessageTracker";
@@ -83,10 +83,19 @@ export interface Highlight {
 export class MmEditorElement extends HTMLElement {
     #model: monaco.editor.ITextModel;
     #host: HTMLDivElement;
+    #preloader: HTMLDivElement;
     #editorInstance: monaco.editor.IStandaloneCodeEditor | undefined;
     #highlightDecorationIds: string[] = [];
     #tsServerClient: TsServerClient | undefined;
     #syncTimer: ReturnType<typeof setTimeout> | undefined;
+
+    #onUploadBusy = (): void => {
+        this.#preloader.hidden = false;
+    };
+
+    #onUploadIdle = (): void => {
+        this.#preloader.hidden = true;
+    };
 
     constructor() {
         super();
@@ -99,10 +108,19 @@ export class MmEditorElement extends HTMLElement {
         this.#host.style.flex = "1";
         this.#host.style.minHeight = "0";
 
+        // Shown while a stored/persisted performance (or an uploaded one) is
+        // being restored, which involves an npm ci and can take a while -
+        // dispatchUploadBusy/Idle already span that whole restore, see
+        // autosave.ts's restoreSavedPerformance.
+        this.#preloader = document.createElement("div");
+        this.#preloader.id = "preloader";
+        this.#preloader.hidden = true;
+        this.#preloader.append(document.createElement("progress"));
+
         this.style.display = "flex";
         this.style.flexDirection = "column";
 
-        this.append(this.#host);
+        this.append(this.#host, this.#preloader);
 
         this.#model = monaco.editor.createModel(DEFAULT_SOURCE, "typescript", monaco.Uri.parse(MODEL_URI));
         this.#model.onDidChangeContent(() => {
@@ -133,7 +151,15 @@ export class MmEditorElement extends HTMLElement {
     connectedCallback(): void {
         this.#editorInstance = monaco.editor.create(this.#host, { model: this.#model, automaticLayout: true });
 
+        document.addEventListener(UPLOAD_BUSY_EVENT, this.#onUploadBusy);
+        document.addEventListener(UPLOAD_IDLE_EVENT, this.#onUploadIdle);
+
         void this.#connectTsServer();
+    }
+
+    disconnectedCallback(): void {
+        document.removeEventListener(UPLOAD_BUSY_EVENT, this.#onUploadBusy);
+        document.removeEventListener(UPLOAD_IDLE_EVENT, this.#onUploadIdle);
     }
 
     getSource(): string {
