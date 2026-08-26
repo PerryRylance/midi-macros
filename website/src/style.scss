@@ -15,7 +15,7 @@ html, body
 
 body, button
 {
-    font-family: Segoe UI,Frutiger,Frutiger Linotype,Dejavu Sans,Helvetica Neue,Arial,sans-serif;
+    font-family: Consolas, "Courier New", monospace;
 }
 
 button
@@ -112,6 +112,11 @@ p#editor-status
         min-height: 0;
         overflow: auto;
     }
+
+    > mm-tabs
+    {
+        overflow: hidden;
+    }
 }
 
 .gutter
@@ -152,17 +157,32 @@ mm-tabs
 {
     background-color: $dark-background;
 
-    & > nav > button
+    display: flex;
+    flex-direction: column;
+
+    & > nav
     {
-        background: none;
-        border: none;
+        flex: none;
 
-        color: $light-text;
-
-        &[aria-selected="true"]
+        & > button
         {
-            text-decoration: underline;
+            background: none;
+            border: none;
+
+            color: $light-text;
+
+            &[aria-selected="true"]
+            {
+                text-decoration: underline;
+            }
         }
+    }
+
+    & > [data-tab-label]
+    {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
     }
 
     a
