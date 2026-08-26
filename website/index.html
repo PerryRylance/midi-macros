@@ -9,8 +9,10 @@
     <div id="wrapper">
         <menu id="toolbar">
             <h1>MIDI Macros</h1>
-            <mm-playback-controls id="playback-controls"></mm-playback-controls>
-            <mm-serialization-controls id="serialization-controls"></mm-serialization-controls>
+            <nav>
+                <mm-playback-controls id="playback-controls"></mm-playback-controls>
+                <mm-serialization-controls id="serialization-controls"></mm-serialization-controls>
+            </nav>
         </menu>
         <div class="split vertical">
             <div class="split horizontal">
@@ -26,19 +28,80 @@
             </div>
             <mm-tabs id="sidebar">
                 <section id="tab-welcome" data-tab-label="Welcome">
-                    <p>midi-macros is a browser-based composition tool built on <code>@perry-rylance/midi</code> and <code>@perry-rylance/midi-macros</code>. Write TypeScript in the editor, then use the controls here to play it back.</p>
+                    <p>midi-macros is a browser-based composition tool built on <a target="_blank" href="https://npmjs.com/package/@perry-rylance/midi"><code>@perry-rylance/midi</code></a> and <a target="_blank" href="https://npmjs.com/package/@perry-rylance/midi-macros"><code>@perry-rylance/midi-macros</code></a>. Write TypeScript in the editor, then use the controls here to play it back.</p>
                 </section>
                 <section id="tab-packages" data-tab-label="Packages">
                     <mm-package-panel></mm-package-panel>
                 </section>
-                <section id="tab-library" data-tab-label="Library">
-                    <p>No saved projects yet.</p>
-                </section>
                 <section id="tab-audio" data-tab-label="Audio">
                     <mm-soundfont-select></mm-soundfont-select>
                 </section>
+                <section id="tab-examples" data-tab-label="Examples">
+                    <p>No saved projects yet.</p>
+                </section>
                 <section id="tab-reference" data-tab-label="Reference">
-                    <p>Documentation for <code>@perry-rylance/midi</code> and <code>@perry-rylance/midi-macros</code> is coming soon.</p>
+                    <article>
+                        <p>
+                            Please see <a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/README.md"><code>README.md</code></a> for more detail on the available macros.
+                        </p>
+                        <p>
+                            You may also find it useful to refer to the MIDI macros <a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/examples/generate.ts">examples</a>.
+                        </p>
+                        <section>
+                            <h2>Macros</h2>
+                            <ul id="macros">
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/README.md#channel"><code>channel</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/README.md#repeat"><code>repeat</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/README.md#parallel"><code>parallel</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/README.md#partition"><code>partition</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/README.md#interpolate"><code>interpolate</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/README.md#ramp"><code>ramp</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi-macros/blob/dev/README.md#cycle"><code>cycle</code></a></li>
+                            </ul>
+                        </section>
+                        <section>
+                            <h2>Events</h2>
+                            <h3>Control</h3>
+                            <ul id="events-control">
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/AftertouchEvent.ts"><code>AftertouchEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/ChannelAftertouchEvent.ts"><code>ChannelAftertouchEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/ControlEvent.ts"><code>ControlEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/ControllerEvent.ts"><code>ControllerEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/NoteEvent.ts"><code>NoteEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/NoteOffEvent.ts"><code>NoteOffEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/NoteOnEvent.ts"><code>NoteOnEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/PitchWheelEvent.ts"><code>PitchWheelEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/control/ProgramChangeEvent.ts"><code>ProgramChangeEvent</code></a></li>
+                            </ul>
+                            <h3>Meta</h3>
+                            <ul id="events-meta">
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/ChannelPrefixEvent.ts"><code>ChannelPrefixEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/CopyrightEvent.ts"><code>CopyrightEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/CuePointEvent.ts"><code>CuePointEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/EndOfTrackEvent.ts"><code>EndOfTrackEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/InstrumentNameEvent.ts"><code>InstrumentNameEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/KeySignatureEvent.ts"><code>KeySignatureEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/LyricEvent.ts"><code>LyricEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/MarkerEvent.ts"><code>MarkerEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/MetaEvent.ts"><code>MetaEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/PortPrefixEvent.ts"><code>PortPrefixEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/SequenceNumberEvent.ts"><code>SequenceNumberEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/SequencerSpecificEvent.ts"><code>SequencerSpecificEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/SetTempoEvent.ts"><code>SetTempoEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/SmtpeOffsetEvent.ts"><code>SmtpeOffsetEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/TextEvent.ts"><code>TextEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/TimeSignatureEvent.ts"><code>TimeSignatureEvent</code></a></li>
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/meta/TrackNameEvent.ts"><code>TrackNameEvent</code></a></li>
+                            </ul>
+                            <h3>SysEx</h3>
+                            <ul id="events-sysex">
+                                <li><a target="_blank" href="https://github.com/PerryRylance/midi/blob/main/src/events/sysex/SysExEvent.ts"><code>SysExEvent</code></a></li>
+                            </ul>
+                        </section>
+                        <section>
+                            <h2>Miscellaneous</h2>
+                        </section>
+                    </article>
                 </section>
             </mm-tabs>
         </div>
