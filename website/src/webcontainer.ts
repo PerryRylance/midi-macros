@@ -106,7 +106,14 @@ export function runNpmCommand(
     args: string[],
     onOutput?: (chunk: string) => void
 ): Promise<InstallResult> {
-    const result = npmQueue.then(() => runQueuedNpmCommand(container, args, onOutput));
+    // Fires synchronously (not deferred behind the queue below) so
+    // isNpmBusy() reflects this call the instant it's made, same as before
+    // this was queued - only the actual npm process is made to wait its turn.
+    beginNpmWork();
+
+    const result = npmQueue
+        .then(() => runQueuedNpmCommand(container, args, onOutput))
+        .finally(() => endNpmWork());
 
     // Keep the queue moving even if this call fails - a later, unrelated
     // command shouldn't be blocked by an earlier one's rejection.
@@ -123,29 +130,23 @@ async function runQueuedNpmCommand(
     args: string[],
     onOutput?: (chunk: string) => void
 ): Promise<InstallResult> {
-    beginNpmWork();
+    const process = await container.spawn("npm", args);
 
-    try {
-        const process = await container.spawn("npm", args);
+    let output = "";
+    const reader = process.output.getReader();
 
-        let output = "";
-        const reader = process.output.getReader();
+    while (true) {
+        const { done, value } = await reader.read();
 
-        while (true) {
-            const { done, value } = await reader.read();
+        if (done) break;
 
-            if (done) break;
-
-            output += value;
-            onOutput?.(value);
-        }
-
-        const exitCode = await process.exit;
-
-        return { exitCode, output };
-    } finally {
-        endNpmWork();
+        output += value;
+        onOutput?.(value);
     }
+
+    const exitCode = await process.exit;
+
+    return { exitCode, output };
 }
 
 export interface UploadedProjectFiles {
