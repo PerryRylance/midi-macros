@@ -91,7 +91,34 @@ function notifyNpmBusyListeners(): void {
     for (const listener of npmBusyListeners) listener(busy);
 }
 
-export async function runNpmCommand(
+// Serialises every npm invocation onto a single global queue. bootWebContainer's
+// initial install, startTsServer's tooling install, and restoreSavedPerformance's
+// `npm ci` (autosave.ts) can all kick off independently - most visibly on
+// reload, where a restore's `npm ci` (which does its own clean node_modules
+// wipe+reinstall) can otherwise race a concurrent tooling install, deleting
+// packages the other just wrote. WebContainer only ever runs one npm process
+// safely against a given project at a time, so callers must queue behind
+// each other rather than overlap.
+let npmQueue: Promise<void> = Promise.resolve();
+
+export function runNpmCommand(
+    container: WebContainer,
+    args: string[],
+    onOutput?: (chunk: string) => void
+): Promise<InstallResult> {
+    const result = npmQueue.then(() => runQueuedNpmCommand(container, args, onOutput));
+
+    // Keep the queue moving even if this call fails - a later, unrelated
+    // command shouldn't be blocked by an earlier one's rejection.
+    npmQueue = result.then(
+        () => undefined,
+        () => undefined
+    );
+
+    return result;
+}
+
+async function runQueuedNpmCommand(
     container: WebContainer,
     args: string[],
     onOutput?: (chunk: string) => void
