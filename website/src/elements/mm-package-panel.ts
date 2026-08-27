@@ -30,7 +30,7 @@ export class MmPackagePanelElement extends HTMLElement {
 
         const label = document.createElement("label");
         label.htmlFor = "package-name";
-        label.textContent = "npm package name";
+        label.textContent = "npm install ";
 
         this.#input = document.createElement("input");
         this.#input.id = "package-name";
@@ -50,17 +50,18 @@ export class MmPackagePanelElement extends HTMLElement {
         cancelButton.textContent = "Cancel";
         cancelButton.addEventListener("click", () => this.#dialog.close());
 
+        const buttonContainer = document.createElement("div");
+        buttonContainer.className = "button-container";
+        buttonContainer.append(this.#installButton, cancelButton);
+
         const form = document.createElement("form");
         form.id = "install-form";
-        form.append(label, this.#input, this.#installButton, cancelButton);
+        form.append(label, this.#input, buttonContainer);
         form.addEventListener("submit", event => this.#handleSubmit(event));
-
-        const dialogHeading = document.createElement("h2");
-        dialogHeading.textContent = "Add package";
 
         this.#dialog = document.createElement("dialog");
         this.#dialog.id = "add-package-dialog";
-        this.#dialog.append(dialogHeading, form);
+        this.#dialog.append(form);
 
         this.#addPackageItem = document.createElement("li");
 
