@@ -8,7 +8,13 @@ on:
 permissions: {}
 
 jobs:
+  core-test:
+    permissions:
+      contents: read
+    uses: ./.github/workflows/test.yml
+
   test:
+    needs: core-test
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
