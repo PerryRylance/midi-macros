@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { BOOT_TIMEOUT, OPERATION_TIMEOUT, QUICK_TIMEOUT } from "./support/waits";
 
 // Scoped to `[data-uri]` because Monaco's rename contribution (loaded via
 // `editor.all.js`) creates its own nested `.monaco-editor` widget for the
@@ -16,7 +17,7 @@ async function replaceEditorContent(page: import("@playwright/test").Page, text:
 test("editor loads with the default source", async ({ page }) => {
     await page.goto("/");
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     await expect(editorRoot(page)).toContainText("@perry-rylance/midi");
 });
 
@@ -28,19 +29,25 @@ test("editor loads with the default source", async ({ page }) => {
 test("shows a real diagnostic from tsserver", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    // Stand-in for the old #status "Ready." readiness gate (removed along
+    // with the status line): #add-package-button only exists once the
+    // package panel's boot has finished its first list refresh, which lands
+    // at the same point in the boot sequence the old status text used to.
+    // toBeAttached() rather than toBeVisible() because the Packages tab
+    // isn't opened here - the panel still boots while hidden.
+    await expect(page.locator("#add-package-button")).toBeAttached({ timeout: OPERATION_TIMEOUT });
     await replaceEditorContent(
         page,
         'import { File } from "@perry-rylance/midi";\nconst x: number = "oops";\nexport default new File();'
     );
 
-    await expect(page.locator(".squiggly-error")).toHaveCount(1, { timeout: 60_000 });
+    await expect(page.locator(".squiggly-error")).toHaveCount(1, { timeout: OPERATION_TIMEOUT });
 });
 
 test("shows a hover popup with type information for a regular (non-error) token", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    await expect(page.locator("#add-package-button")).toBeAttached({ timeout: OPERATION_TIMEOUT });
     await replaceEditorContent(
         page,
         'import { File } from "@perry-rylance/midi";\nconst answer = 42;\nexport default new File();'
@@ -62,14 +69,14 @@ test("shows a hover popup with type information for a regular (non-error) token"
         await answerToken.click();
         await page.keyboard.press("Control+K");
         await page.keyboard.press("Control+I");
-        await expect(hover).toContainText("answer", { timeout: 2_000 });
-    }).toPass({ timeout: 60_000 });
+        await expect(hover).toContainText("answer", { timeout: QUICK_TIMEOUT });
+    }).toPass({ timeout: OPERATION_TIMEOUT });
 });
 
 test("shows member auto-complete after typing a dot", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    await expect(page.locator("#add-package-button")).toBeAttached({ timeout: OPERATION_TIMEOUT });
     await replaceEditorContent(
         page,
         'import { File } from "@perry-rylance/midi";\n\nconst file = new File();\n\nfile.\n\nexport default file;'
@@ -91,14 +98,14 @@ test("shows member auto-complete after typing a dot", async ({ page }) => {
     await expect(async () => {
         await page.keyboard.press("Escape");
         await page.keyboard.press("Control+Space");
-        await expect(suggestions).toContainText("tracks", { timeout: 2_000 });
-    }).toPass({ timeout: 60_000 });
+        await expect(suggestions).toContainText("tracks", { timeout: QUICK_TIMEOUT });
+    }).toPass({ timeout: OPERATION_TIMEOUT });
 });
 
 test("shows argument/overload hints inside a call's parentheses", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    await expect(page.locator("#add-package-button")).toBeAttached({ timeout: OPERATION_TIMEOUT });
     // Ends with an open paren deliberately - Monaco auto-closes it, leaving
     // the caret right where we need it: inside the argument list.
     await replaceEditorContent(page, 'import { File } from "@perry-rylance/midi";\n\nconst file = new File().tracks(');
@@ -110,8 +117,8 @@ test("shows argument/overload hints inside a call's parentheses", async ({ page 
     await expect(async () => {
         await page.keyboard.press("Escape");
         await page.keyboard.press("Control+Shift+Space");
-        await expect(hints).toContainText("tracks(", { timeout: 2_000 });
-    }).toPass({ timeout: 60_000 });
+        await expect(hints).toContainText("tracks(", { timeout: QUICK_TIMEOUT });
+    }).toPass({ timeout: OPERATION_TIMEOUT });
 
     await expect(hints).toContainText("value");
 });
@@ -119,7 +126,7 @@ test("shows argument/overload hints inside a call's parentheses", async ({ page 
 test("shows the source package on an auto-import suggestion and adds the import when accepted", async ({ page }) => {
     await page.goto("/");
 
-    await expect(page.locator("#status")).toHaveText("Ready.", { timeout: 60_000 });
+    await expect(page.locator("#add-package-button")).toBeAttached({ timeout: OPERATION_TIMEOUT });
     // "Track" is deliberately not imported here - only "File" is.
     await replaceEditorContent(page, 'import { File } from "@perry-rylance/midi";\n\nconst file = new File();\nnew Track');
 
@@ -136,8 +143,8 @@ test("shows the source package on an auto-import suggestion and adds the import 
     await expect(async () => {
         await page.keyboard.press("Escape");
         await page.keyboard.press("Control+Space");
-        await expect(trackRow).toBeVisible({ timeout: 2_000 });
-    }).toPass({ timeout: 60_000 });
+        await expect(trackRow).toBeVisible({ timeout: QUICK_TIMEOUT });
+    }).toPass({ timeout: OPERATION_TIMEOUT });
 
     // The visible, dimmed "source package" label VS Code shows for
     // disambiguation - `.details-label` is what actually renders it.

@@ -1,21 +1,10 @@
 import { readFileSync } from "node:fs";
-import { test, expect, type Locator } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import JSZip from "jszip";
+import { OPERATION_TIMEOUT, waitUntilContainerSettled } from "./support/waits";
 
 async function openPackagesTab(page: import("@playwright/test").Page): Promise<void> {
     await page.locator("#tab-button-packages").click();
-}
-
-// Boot runs two separate npm phases in sequence - the default dependencies,
-// then (once mm-editor's own bootWebContainer() call resolves) tsserver's
-// tooling install - with a brief gap of genuine idle time between them. A
-// plain "wait until enabled" can land in that gap and declare the container
-// ready a phase early; waiting for it to still read enabled a moment later
-// avoids racing the second phase.
-async function waitUntilContainerSettled(button: Locator): Promise<void> {
-    await expect(button).toBeEnabled({ timeout: 30_000 });
-    await button.page().waitForTimeout(1000);
-    await expect(button).toBeEnabled({ timeout: 30_000 });
 }
 
 test("shows a Download button in the toolbar", async ({ page }) => {
@@ -54,7 +43,7 @@ test("downloads a zip of the performance, package.json and package-lock.json, di
 
     // Generous timeout: this may still be overlapping with the tail of the
     // container's own tsserver tooling install (see waitUntilContainerSettled).
-    await expect(downloadButton).toBeEnabled({ timeout: 60_000 });
+    await expect(downloadButton).toBeEnabled({ timeout: OPERATION_TIMEOUT });
     await expect(output).toContainText("Download ready.");
 
     const archivePath = await download.path();
@@ -70,15 +59,17 @@ test("disables the download button while npm installs a package, and re-enables 
     await openPackagesTab(page);
 
     const downloadButton = page.locator("#serialization-controls").getByRole("button", { name: "Download" });
-    const status = page.locator("#status");
 
-    await expect(status).toHaveText("Ready.", { timeout: 60_000 });
+    // #add-package-button only exists once the panel's first package-list
+    // refresh has run, replacing the old #status "Ready." readiness signal.
+    await expect(page.locator("#add-package-button")).toBeAttached({ timeout: OPERATION_TIMEOUT });
     await waitUntilContainerSettled(downloadButton);
 
+    await page.locator("#add-package-button").click();
     await page.locator("#package-name").fill("nanoid");
     await page.locator("#install-button").click();
 
     await expect(downloadButton).toBeDisabled();
-    await expect(status).toHaveText("Installed nanoid.", { timeout: 60_000 });
-    await expect(downloadButton).toBeEnabled({ timeout: 60_000 });
+    await expect(page.locator("#package-list li", { hasText: "nanoid" })).toBeVisible({ timeout: OPERATION_TIMEOUT });
+    await expect(downloadButton).toBeEnabled({ timeout: OPERATION_TIMEOUT });
 });

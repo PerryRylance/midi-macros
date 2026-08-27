@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { BOOT_TIMEOUT, OPERATION_TIMEOUT } from "./support/waits";
 
 // Scoped to `[data-uri]` because Monaco's rename contribution (loaded via
 // `editor.all.js`) creates its own nested `.monaco-editor` widget for the
@@ -32,7 +33,7 @@ test("disables the controls until the SoundFont finishes loading", async ({ page
     // The SoundFont starts loading immediately on page load (see
     // mm-soundfont-select.ts), so this may already be enabled by the time we
     // check - the real assertion is the "becomes enabled" one below.
-    await expect(playButton).toBeEnabled({ timeout: 30_000 });
+    await expect(playButton).toBeEnabled({ timeout: BOOT_TIMEOUT });
     await expect(controls.getByRole("button", { name: "Pause" })).toBeEnabled();
     await expect(controls.getByRole("button", { name: "Stop" })).toBeEnabled();
 });
@@ -43,11 +44,11 @@ test("renders and plays the editor's default performance, then pauses and stops"
     const controls = page.locator("#playback-controls");
     const output = page.locator("#build-output-message");
 
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
     await controls.getByRole("button", { name: "Play" }).click();
     await expect(output).toContainText("Rendering audio...");
-    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+    await expect(output).toContainText("Playback started.", { timeout: OPERATION_TIMEOUT });
 
     await controls.getByRole("button", { name: "Pause" }).click();
     await expect(output).toContainText("Paused.");
@@ -70,7 +71,7 @@ test("switches to the Output tab when Play is pressed", async ({ page }) => {
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
     await expect(page.locator("#tab-terminal")).toBeVisible();
     await expect(page.locator("#tab-output")).toBeHidden();
@@ -85,9 +86,9 @@ test("shows a runtime ReferenceError from the performance in the build output", 
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     // Needs a valid default export so it's the runtime call to the
     // undefined `breaking` that fails, not the (now separately tested)
     // missing-default-export check.
@@ -99,7 +100,7 @@ test("shows a runtime ReferenceError from the performance in the build output", 
     await controls.getByRole("button", { name: "Play" }).click();
 
     await expect(page.locator("#build-output-message")).toContainText("ReferenceError: breaking is not defined", {
-        timeout: 60_000
+        timeout: OPERATION_TIMEOUT
     });
 });
 
@@ -108,16 +109,16 @@ test("shows 'No default export' in the build output for a performance with no de
 
     const controls = page.locator("#playback-controls");
     const output = page.locator("#build-output-message");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     // No default export at all - this is a real TypeScript compiler
     // diagnostic (see performanceEvaluator.ts), not a check we run ourselves.
     await replaceEditorContent(page, "export const x = 1;");
 
     await controls.getByRole("button", { name: "Play" }).click();
 
-    await expect(output).toContainText("No default export", { timeout: 60_000 });
+    await expect(output).toContainText("No default export", { timeout: OPERATION_TIMEOUT });
 });
 
 test("shows a success message in the build output for a performance that builds cleanly", async ({ page }) => {
@@ -125,9 +126,9 @@ test("shows a success message in the build output for a performance that builds 
 
     const controls = page.locator("#playback-controls");
     const output = page.locator("#build-output-message");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     // Deliberately not the default performance (there's a known, separate
     // issue with it being tracked down independently) - this is the simplest
     // possible performance known to build cleanly.
@@ -136,8 +137,8 @@ test("shows a success message in the build output for a performance that builds 
     await controls.getByRole("button", { name: "Play" }).click();
 
     await expect(output).toContainText("Rendering audio...");
-    await expect(output).toContainText("Build successful.", { timeout: 60_000 });
-    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+    await expect(output).toContainText("Build successful.", { timeout: OPERATION_TIMEOUT });
+    await expect(output).toContainText("Playback started.", { timeout: OPERATION_TIMEOUT });
 });
 
 test("starts playback with Ctrl+Enter", async ({ page }) => {
@@ -145,12 +146,12 @@ test("starts playback with Ctrl+Enter", async ({ page }) => {
 
     const controls = page.locator("#playback-controls");
     const output = page.locator("#build-output-message");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
     await page.keyboard.press("Control+Enter");
 
     await expect(output).toContainText("Rendering audio...");
-    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+    await expect(output).toContainText("Playback started.", { timeout: OPERATION_TIMEOUT });
 });
 
 test("restarts playback when Ctrl+Enter is pressed again while already playing", async ({ page }) => {
@@ -158,14 +159,14 @@ test("restarts playback when Ctrl+Enter is pressed again while already playing",
 
     const controls = page.locator("#playback-controls");
     const output = page.locator("#build-output-message");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
     await page.keyboard.press("Control+Enter");
-    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+    await expect(output).toContainText("Playback started.", { timeout: OPERATION_TIMEOUT });
 
     await page.keyboard.press("Control+Enter");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
-    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
+    await expect(output).toContainText("Playback started.", { timeout: OPERATION_TIMEOUT });
 });
 
 test("stops playback with Alt+Enter", async ({ page }) => {
@@ -173,10 +174,10 @@ test("stops playback with Alt+Enter", async ({ page }) => {
 
     const controls = page.locator("#playback-controls");
     const output = page.locator("#build-output-message");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
     await page.keyboard.press("Control+Enter");
-    await expect(output).toContainText("Playback started.", { timeout: 60_000 });
+    await expect(output).toContainText("Playback started.", { timeout: OPERATION_TIMEOUT });
 
     await page.keyboard.press("Alt+Enter");
     await expect(output).toContainText("Stopped.");
@@ -187,19 +188,19 @@ test("clears the build output when Play is pressed again", async ({ page }) => {
 
     const controls = page.locator("#playback-controls");
     const output = page.locator("#build-output-message");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     await replaceEditorContent(
         page,
         'import { File } from "@perry-rylance/midi";\nbreaking();\nexport default new File();'
     );
     await controls.getByRole("button", { name: "Play" }).click();
-    await expect(output).toContainText("ReferenceError: breaking is not defined", { timeout: 60_000 });
+    await expect(output).toContainText("ReferenceError: breaking is not defined", { timeout: OPERATION_TIMEOUT });
 
     await replaceEditorContent(page, 'import { File } from "@perry-rylance/midi";\nexport default new File();');
     await controls.getByRole("button", { name: "Play" }).click();
 
-    await expect(output).toContainText("Build successful.", { timeout: 60_000 });
+    await expect(output).toContainText("Build successful.", { timeout: OPERATION_TIMEOUT });
     await expect(output).not.toContainText("ReferenceError");
 });

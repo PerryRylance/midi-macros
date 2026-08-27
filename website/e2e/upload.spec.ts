@@ -1,23 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { test, expect, type Page } from "@playwright/test";
 import JSZip from "jszip";
+import { BOOT_TIMEOUT, OPERATION_TIMEOUT, waitUntilContainerSettled } from "./support/waits";
 
 const UPLOAD_MARKER = "// mm-e2e-upload-marker";
 
 function editorRoot(page: Page) {
     return page.locator(".monaco-editor[data-uri]");
-}
-
-// Boot runs two separate npm phases in sequence - the default dependencies,
-// then (once mm-editor's own bootWebContainer() call resolves) tsserver's
-// tooling install - with a brief gap of genuine idle time between them. A
-// plain "wait until enabled" can land in that gap and declare the container
-// ready a phase early; waiting for it to still read enabled a moment later
-// avoids racing the second phase.
-async function waitUntilContainerSettled(button: import("@playwright/test").Locator): Promise<void> {
-    await expect(button).toBeEnabled({ timeout: 30_000 });
-    await button.page().waitForTimeout(1000);
-    await expect(button).toBeEnabled({ timeout: 30_000 });
 }
 
 // Downloads the page's own current package.json/package-lock.json (real,
@@ -90,15 +79,15 @@ test("uploads a zip, replacing the editor's performance and reinstalling depende
         buffer: archive
     });
 
-    await expect(output).toContainText("Upload complete.", { timeout: 60_000 });
+    await expect(output).toContainText("Upload complete.", { timeout: OPERATION_TIMEOUT });
     await expect(editorRoot(page)).toContainText(UPLOAD_MARKER);
 
     // The uploaded project's dependencies were reinstalled, not just its
     // source swapped in - Play should still work against the new performance.
     const playbackControls = page.locator("#playback-controls");
-    await expect(playbackControls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 60_000 });
+    await expect(playbackControls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: OPERATION_TIMEOUT });
     await playbackControls.getByRole("button", { name: "Play" }).click();
-    await expect(output).toContainText("Build successful.", { timeout: 60_000 });
+    await expect(output).toContainText("Build successful.", { timeout: OPERATION_TIMEOUT });
 });
 
 test("disables playback, download and upload while an upload is processing, then re-enables them", async ({ page }) => {
@@ -123,15 +112,15 @@ test("disables playback, download and upload while an upload is processing, then
     await expect(downloadButton).toBeDisabled();
     await expect(playButton).toBeDisabled();
 
-    await expect(output).toContainText("Upload complete.", { timeout: 60_000 });
+    await expect(output).toContainText("Upload complete.", { timeout: OPERATION_TIMEOUT });
 
     // A generous timeout here too: the upload's own npm ci may still be
     // overlapping with the tail of the container's own tsserver tooling
     // install (see waitUntilContainerSettled above), which only clears once
     // that unrelated, coincidentally-overlapping install finishes too.
-    await expect(uploadButton).toBeEnabled({ timeout: 60_000 });
-    await expect(downloadButton).toBeEnabled({ timeout: 60_000 });
-    await expect(playButton).toBeEnabled({ timeout: 60_000 });
+    await expect(uploadButton).toBeEnabled({ timeout: OPERATION_TIMEOUT });
+    await expect(downloadButton).toBeEnabled({ timeout: OPERATION_TIMEOUT });
+    await expect(playButton).toBeEnabled({ timeout: OPERATION_TIMEOUT });
 });
 
 test("shows an error and leaves playback usable when the archive is missing a required file", async ({ page }) => {
@@ -154,7 +143,7 @@ test("shows an error and leaves playback usable when the archive is missing a re
         buffer: archive
     });
 
-    await expect(output).toContainText("package-lock.json", { timeout: 30_000 });
+    await expect(output).toContainText("package-lock.json", { timeout: BOOT_TIMEOUT });
     await expect(editorRoot(page)).not.toContainText(UPLOAD_MARKER);
 
     await expect(uploadButton).toBeEnabled();
@@ -175,6 +164,6 @@ test("shows an error for a file that isn't a valid ZIP", async ({ page }) => {
         buffer: Buffer.from("this is definitely not a zip file")
     });
 
-    await expect(output).toContainText("ZIP", { timeout: 30_000 });
+    await expect(output).toContainText("ZIP", { timeout: BOOT_TIMEOUT });
     await expect(uploadButton).toBeEnabled();
 });

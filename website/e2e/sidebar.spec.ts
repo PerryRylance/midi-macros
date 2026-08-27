@@ -1,15 +1,16 @@
 import { test, expect } from "@playwright/test";
+import { BOOT_TIMEOUT } from "./support/waits";
 
-test("shows Welcome, Library, Audio and Reference tabs, with Welcome visible by default", async ({ page }) => {
+test("shows Welcome, Packages, Audio and Reference tabs, with Welcome visible by default", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.locator("#tab-button-welcome")).toBeVisible();
-    await expect(page.locator("#tab-button-library")).toBeVisible();
+    await expect(page.locator("#tab-button-packages")).toBeVisible();
     await expect(page.locator("#tab-button-audio")).toBeVisible();
     await expect(page.locator("#tab-button-reference")).toBeVisible();
 
     await expect(page.locator("#tab-welcome")).toBeVisible();
-    await expect(page.locator("#tab-library")).toBeHidden();
+    await expect(page.locator("#tab-packages")).toBeHidden();
     await expect(page.locator("#tab-audio")).toBeHidden();
     await expect(page.locator("#tab-reference")).toBeHidden();
 });
@@ -21,11 +22,11 @@ test("switches tabs when clicking a tab button, showing only that tab's panel", 
 
     await expect(page.locator("#tab-audio")).toBeVisible();
     await expect(page.locator("#tab-welcome")).toBeHidden();
-    await expect(page.locator("#tab-library")).toBeHidden();
+    await expect(page.locator("#tab-packages")).toBeHidden();
     await expect(page.locator("#tab-reference")).toBeHidden();
 
-    await page.locator("#tab-button-library").click();
-    await expect(page.locator("#tab-library")).toBeVisible();
+    await page.locator("#tab-button-packages").click();
+    await expect(page.locator("#tab-packages")).toBeVisible();
     await expect(page.locator("#tab-audio")).toBeHidden();
 });
 
@@ -34,7 +35,7 @@ test("loads the selected SoundFont from a remote URL on init, without needing th
 
     // Deliberately not switching to the Audio tab first - loading must not
     // depend on the user having opened it.
-    await expect(page.locator("#audio-status")).toHaveText("Ready.", { timeout: 30_000 });
+    await expect(page.locator("#audio-status")).toHaveText("Ready.", { timeout: BOOT_TIMEOUT });
 });
 
 test("reloads the SoundFont when the selection changes", async ({ page }) => {
@@ -52,13 +53,13 @@ test("reloads the SoundFont when the selection changes", async ({ page }) => {
     await page.goto("/");
 
     await page.locator("#tab-button-audio").click();
-    await expect(page.locator("#audio-status")).toHaveText("Ready.", { timeout: 30_000 });
+    await expect(page.locator("#audio-status")).toHaveText("Ready.", { timeout: BOOT_TIMEOUT });
 
     const requestCountAfterInit = soundfontRequestUrls.length;
     expect(requestCountAfterInit).toBeGreaterThanOrEqual(1);
 
     await page.locator("#soundfont-select").selectOption({ index: 0 });
-    await expect(page.locator("#audio-status")).toHaveText("Ready.", { timeout: 30_000 });
+    await expect(page.locator("#audio-status")).toHaveText("Ready.", { timeout: BOOT_TIMEOUT });
 
     expect(soundfontRequestUrls.length).toBeGreaterThan(requestCountAfterInit);
 });

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { BOOT_TIMEOUT, OPERATION_TIMEOUT, SETTLE_TIMEOUT } from "./support/waits";
 
 const STORAGE_KEY = "mm-saved-performance";
 const MARKER = "// mm-e2e-persistence-marker";
@@ -32,23 +33,23 @@ test("saves the performance after a period of inactivity and restores it on relo
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
 
     await replaceEditorContent(page, MARKER_SOURCE);
 
     // Waits for the real autosave debounce to fire and actually write to
     // localStorage, rather than guessing at the timing with a fixed sleep.
-    await expect.poll(() => readSavedPerformance(page), { timeout: 10_000 }).not.toBeNull();
+    await expect.poll(() => readSavedPerformance(page), { timeout: SETTLE_TIMEOUT }).not.toBeNull();
 
     await page.reload();
 
-    await expect(editorRoot(page)).toContainText(MARKER, { timeout: 30_000 });
+    await expect(editorRoot(page)).toContainText(MARKER, { timeout: BOOT_TIMEOUT });
 
     const reloadedControls = page.locator("#playback-controls");
-    await expect(reloadedControls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 60_000 });
+    await expect(reloadedControls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: OPERATION_TIMEOUT });
     await reloadedControls.getByRole("button", { name: "Play" }).click();
-    await expect(page.locator("#build-output-message")).toContainText("Build successful.", { timeout: 60_000 });
+    await expect(page.locator("#build-output-message")).toContainText("Build successful.", { timeout: OPERATION_TIMEOUT });
 });
 
 test("falls back to the default performance and clears the entry when saved data is corrupt", async ({ page }) => {
@@ -57,8 +58,8 @@ test("falls back to the default performance and clears the entry when saved data
 
     await page.reload();
 
-    await expect(page.locator("#build-output-message")).toContainText("Could not restore saved performance", { timeout: 30_000 });
-    await expect(page.locator("#playback-controls").getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 60_000 });
+    await expect(page.locator("#build-output-message")).toContainText("Could not restore saved performance", { timeout: BOOT_TIMEOUT });
+    await expect(page.locator("#playback-controls").getByRole("button", { name: "Play" })).toBeEnabled({ timeout: OPERATION_TIMEOUT });
 
     // The editor's preloader spans the whole restore attempt (success or
     // failure - see dispatchUploadBusy/Idle in autosave.ts's

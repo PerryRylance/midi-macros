@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { BOOT_TIMEOUT, OPERATION_TIMEOUT, SETTLE_TIMEOUT, SHORT_TIMEOUT } from "./support/waits";
 
 // Scoped to `[data-uri]` because Monaco's rename contribution (loaded via
 // `editor.all.js`) creates its own nested `.monaco-editor` widget for the
@@ -32,9 +33,9 @@ test("highlights the MIDI event constructor currently playing", async ({ page })
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     await replaceEditorContent(page, SIMPLE_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
@@ -43,7 +44,7 @@ test("highlights the MIDI event constructor currently playing", async ({ page })
     // token span, so a single highlighted expression resolves to several
     // elements - join their text back together in document order.
     const highlight = page.locator(".mm-highlighted-event");
-    await expect(highlight.first()).toBeVisible({ timeout: 60_000 });
+    await expect(highlight.first()).toBeVisible({ timeout: OPERATION_TIMEOUT });
 
     const text = (await highlight.allTextContents()).join("");
     expect(text).toContain("NoteOnEvent");
@@ -66,17 +67,17 @@ test("clears highlights once the song finishes playing on its own", async ({ pag
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     await replaceEditorContent(page, SHORT_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 
-    await expect(page.locator(".mm-highlighted-event").first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator(".mm-highlighted-event").first()).toBeVisible({ timeout: OPERATION_TIMEOUT });
 
     // Never pressing Stop - just waiting for the short song to end on its own.
-    await expect(page.locator(".mm-highlighted-event")).toHaveCount(0, { timeout: 10_000 });
+    await expect(page.locator(".mm-highlighted-event")).toHaveCount(0, { timeout: SETTLE_TIMEOUT });
 });
 
 // A note built inside .flatMap() over a *named* array (not an inline
@@ -99,15 +100,15 @@ test("highlights the current array element for a note built inside .flatMap over
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     await replaceEditorContent(page, PATTERN_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 
     const eventHighlight = page.locator(".mm-highlighted-event");
-    await expect(eventHighlight.first()).toBeVisible({ timeout: 60_000 });
+    await expect(eventHighlight.first()).toBeVisible({ timeout: OPERATION_TIMEOUT });
 
     const eventText = (await eventHighlight.allTextContents()).join("");
     expect(eventText).toContain("NoteOnEvent");
@@ -115,7 +116,7 @@ test("highlights the current array element for a note built inside .flatMap over
     // The literal "60" inside `const notes = [60, 64, 67]` - resolved back
     // through the named array, not just an inline literal at the call site.
     const elementHighlight = page.locator(".mm-highlighted-element");
-    await expect(elementHighlight.first()).toBeVisible({ timeout: 5_000 });
+    await expect(elementHighlight.first()).toBeVisible({ timeout: SHORT_TIMEOUT });
 
     const elementText = (await elementHighlight.allTextContents()).join("");
     expect(elementText).toBe("60");
@@ -140,14 +141,14 @@ test("does not highlight an array element when the iterated array can't be trace
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     await replaceEditorContent(page, FILTERED_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 
-    await expect(page.locator(".mm-highlighted-event").first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator(".mm-highlighted-event").first()).toBeVisible({ timeout: OPERATION_TIMEOUT });
     await expect(page.locator(".mm-highlighted-element")).toHaveCount(0);
 });
 
@@ -155,14 +156,14 @@ test("clears highlights when Stop is pressed", async ({ page }) => {
     await page.goto("/");
 
     const controls = page.locator("#playback-controls");
-    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 30_000 });
+    await expect(controls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: BOOT_TIMEOUT });
 
-    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: 30_000 });
+    await expect(editorRoot(page).locator(".view-lines")).toBeVisible({ timeout: BOOT_TIMEOUT });
     await replaceEditorContent(page, SIMPLE_PERFORMANCE);
 
     await controls.getByRole("button", { name: "Play" }).click();
 
-    await expect(page.locator(".mm-highlighted-event").first()).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator(".mm-highlighted-event").first()).toBeVisible({ timeout: OPERATION_TIMEOUT });
 
     await controls.getByRole("button", { name: "Stop" }).click();
 
