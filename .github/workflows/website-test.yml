@@ -1,0 +1,37 @@
+name: Website Test
+
+on:
+  push:
+  workflow_call:
+
+# Deny all permissions by default; grant only what each job needs.
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: website
+      - name: Type check
+        run: npx tsc --noEmit
+        working-directory: website
+      - name: Test
+        run: npm test
+        working-directory: website
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+        working-directory: website
+      - name: Test e2e
+        run: npm run test:e2e
+        working-directory: website
