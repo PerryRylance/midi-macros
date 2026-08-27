@@ -47,7 +47,6 @@ test("saves the performance after a period of inactivity and restores it on relo
 
     const reloadedControls = page.locator("#playback-controls");
     await expect(reloadedControls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 60_000 });
-    await expect(page.locator("#preloader")).toBeHidden();
     await reloadedControls.getByRole("button", { name: "Play" }).click();
     await expect(page.locator("#build-output-message")).toContainText("Build successful.", { timeout: 60_000 });
 });
@@ -60,6 +59,12 @@ test("falls back to the default performance and clears the entry when saved data
 
     await expect(page.locator("#build-output-message")).toContainText("Could not restore saved performance", { timeout: 30_000 });
     await expect(page.locator("#playback-controls").getByRole("button", { name: "Play" })).toBeEnabled({ timeout: 60_000 });
+
+    // The editor's preloader spans the whole restore attempt (success or
+    // failure - see dispatchUploadBusy/Idle in autosave.ts's
+    // restoreSavedPerformance) - it must not be left showing, and blocking
+    // the editor, once that attempt has finished.
+    await expect(page.locator("#preloader")).toBeHidden();
 
     expect(await readSavedPerformance(page)).toBeNull();
 });
