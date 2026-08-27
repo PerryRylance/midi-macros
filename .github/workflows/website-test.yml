@@ -24,7 +24,10 @@ jobs:
         run: npm ci
         working-directory: website
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
+        working-directory: website
+      - name: Type check (tests)
+        run: npm run typecheck:test
         working-directory: website
       - name: Test
         run: npm test

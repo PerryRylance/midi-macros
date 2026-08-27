@@ -42,7 +42,7 @@ const MODEL_URI = `file://${WORKDIR_FILE_PATH}`;
 // Never shown to the user - see the "warming up" comment in #connectTsServer.
 const WARMUP_FILE_PATH = `${WORKDIR_ROOT_PATH}/.warmup.ts`;
 
-import DEFAULT_SOURCE from "../default.performance?raw";
+import DEFAULT_SOURCE from "../default.performance.ts.stub?raw";
 
 // tsserver's own debounce for diagnostics is per-request (the `delay` field
 // on `geterr`), not per-keystroke - this avoids flooding it with a fresh

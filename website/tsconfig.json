@@ -23,5 +23,5 @@
     "moduleResolution": "bundler",
     "esModuleInterop": true
   },
-  "include": ["src", "tests", "e2e"]
+  "include": ["src"]
 }
