@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
-import { buildDownloadArchive, InvalidArchiveError, parseUploadArchive } from "../src/serialization";
+import { archiveFileName, buildDownloadArchive, InvalidArchiveError, parseUploadArchive, titleFromArchiveFileName } from "../src/serialization";
 
 const VALID_FILES = {
     source: "export default 1;\n",
@@ -82,5 +82,34 @@ describe("parseUploadArchive", () => {
 
         await expect(parseUploadArchive(notAZip)).rejects.toThrow(InvalidArchiveError);
         await expect(parseUploadArchive(notAZip)).rejects.toThrow(/ZIP/);
+    });
+});
+
+describe("archiveFileName", () => {
+    it("appends .zip to the given title", () => {
+        expect(archiveFileName("My Song")).toBe("My Song.zip");
+    });
+
+    it("trims surrounding whitespace", () => {
+        expect(archiveFileName("  My Song  ")).toBe("My Song.zip");
+    });
+
+    it("falls back to the default title when blank", () => {
+        expect(archiveFileName("")).toBe("MIDI Macros.zip");
+        expect(archiveFileName("   ")).toBe("MIDI Macros.zip");
+    });
+});
+
+describe("titleFromArchiveFileName", () => {
+    it("strips a trailing .zip extension", () => {
+        expect(titleFromArchiveFileName("My Song.zip")).toBe("My Song");
+    });
+
+    it("is case-insensitive about the extension", () => {
+        expect(titleFromArchiveFileName("My Song.ZIP")).toBe("My Song");
+    });
+
+    it("leaves a name with no .zip extension untouched", () => {
+        expect(titleFromArchiveFileName("My Song")).toBe("My Song");
     });
 });

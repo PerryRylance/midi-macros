@@ -90,6 +90,26 @@ test("uploads a zip, replacing the editor's performance and reinstalling depende
     await expect(output).toContainText("Build successful.", { timeout: OPERATION_TIMEOUT });
 });
 
+test("sets the title from the uploaded archive's filename", async ({ page }) => {
+    await page.goto("/");
+
+    const uploadButton = page.locator("#serialization-controls").getByRole("button", { name: "Upload" });
+    const output = page.locator("#build-output-message");
+
+    await waitUntilContainerSettled(uploadButton);
+
+    const archive = await buildUploadFixture(page, MARKER_SOURCE);
+
+    await page.locator("#upload-input").setInputFiles({
+        name: "my-performance.zip",
+        mimeType: "application/zip",
+        buffer: archive
+    });
+
+    await expect(output).toContainText("Upload complete.", { timeout: OPERATION_TIMEOUT });
+    await expect(page.locator("#editable-title").getByRole("heading")).toHaveText("my-performance");
+});
+
 test("disables playback, download and upload while an upload is processing, then re-enables them", async ({ page }) => {
     await page.goto("/");
 

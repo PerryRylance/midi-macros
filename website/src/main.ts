@@ -1,6 +1,7 @@
 import "@xterm/xterm/css/xterm.css";
 import "./layout";
 import "./elements/mm-tabs";
+import "./elements/mm-editable-title";
 import "./elements/mm-package-terminal";
 import "./elements/mm-package-panel";
 import "./elements/mm-build-output";

@@ -39,7 +39,7 @@ test("downloads a zip of the performance, package.json and package-lock.json, di
         }).then(disabledDuringClick => expect(disabledDuringClick).toBe(true))
     ]);
 
-    expect(download.suggestedFilename()).toBe("midi-macros.zip");
+    expect(download.suggestedFilename()).toBe("MIDI Macros.zip");
 
     // Generous timeout: this may still be overlapping with the tail of the
     // container's own tsserver tooling install (see waitUntilContainerSettled).
@@ -52,6 +52,26 @@ test("downloads a zip of the performance, package.json and package-lock.json, di
     expect(Object.keys(zip.files).sort()).toEqual(["package-lock.json", "package.json", "performance.ts"]);
     expect(await zip.file("performance.ts")!.async("string")).toContain("NoteOnEvent");
     expect(JSON.parse(await zip.file("package.json")!.async("string")).name).toBe("sandbox");
+});
+
+test("names the downloaded zip after the current title", async ({ page }) => {
+    await page.goto("/");
+
+    const downloadButton = page.locator("#serialization-controls").getByRole("button", { name: "Download" });
+
+    await waitUntilContainerSettled(downloadButton);
+
+    const title = page.locator("#editable-title");
+    await title.getByRole("button", { name: "Edit title" }).click();
+    await page.locator("#title-input").fill("My Song");
+    await page.locator("#toolbar").click();
+
+    const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        downloadButton.click()
+    ]);
+
+    expect(download.suggestedFilename()).toBe("My Song.zip");
 });
 
 test("disables the download button while npm installs a package, and re-enables it once done", async ({ page }) => {

@@ -1,6 +1,6 @@
 import { createElement, Download, Upload } from "lucide";
 import { bootWebContainer, loadUploadedProject, onNpmBusyChange } from "../webcontainer";
-import { buildDownloadArchive, parseUploadArchive } from "../serialization";
+import { archiveFileName, buildDownloadArchive, parseUploadArchive, titleFromArchiveFileName } from "../serialization";
 import {
     dispatchBuildOutput,
     dispatchBuildOutputClear,
@@ -8,12 +8,12 @@ import {
     dispatchUploadBusy,
     dispatchUploadIdle
 } from "../events";
+import type { MmEditableTitleElement } from "./mm-editable-title";
 import type { MmEditorElement } from "./mm-editor";
 import type { MmTabsElement } from "./mm-tabs";
 
 const BUILD_TABS_ID = "build-tabs";
 const OUTPUT_PANEL_ID = "tab-output";
-const ARCHIVE_FILE_NAME = "midi-macros.zip";
 
 function toErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
@@ -122,7 +122,9 @@ export class MmSerializationControlsElement extends HTMLElement {
                 packageLockJson
             });
 
-            triggerDownload(archive, ARCHIVE_FILE_NAME);
+            const title = document.querySelector<MmEditableTitleElement>("#editable-title")?.getTitle() ?? "";
+
+            triggerDownload(archive, archiveFileName(title));
 
             dispatchBuildOutput({ status: "success", message: "Download ready." });
         } catch (error) {
@@ -167,6 +169,7 @@ export class MmSerializationControlsElement extends HTMLElement {
             }
 
             editor.setSource(source);
+            document.querySelector<MmEditableTitleElement>("#editable-title")?.setTitle(titleFromArchiveFileName(file.name));
 
             dispatchBuildOutput({ status: "success", message: "Upload complete." });
         } catch (error) {

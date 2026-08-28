@@ -1,6 +1,22 @@
 import JSZip from "jszip";
 import { PERFORMANCE_FILE_NAME } from "./performanceEvaluator";
 
+// Shared with mm-editable-title.ts, which falls back to this same string when
+// no title has ever been saved - keeping the two in sync here means a blank
+// title always downloads under the same name the editable heading itself
+// falls back to displaying.
+export const DEFAULT_TITLE = "MIDI Macros";
+
+export function archiveFileName(title: string): string {
+    const trimmed = title.trim();
+
+    return `${trimmed.length > 0 ? trimmed : DEFAULT_TITLE}.zip`;
+}
+
+export function titleFromArchiveFileName(fileName: string): string {
+    return fileName.replace(/\.zip$/i, "");
+}
+
 export interface DownloadArchiveInput {
     source: string;
     packageJson: string;
