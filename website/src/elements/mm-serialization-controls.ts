@@ -1,6 +1,6 @@
 import { createElement, Download, Upload } from "lucide";
 import { bootWebContainer, loadUploadedProject, onNpmBusyChange } from "../webcontainer";
-import { archiveFileName, buildDownloadArchive, parseUploadArchive, titleFromArchiveFileName } from "../serialization";
+import { archiveFileName, buildDownloadArchive, filenameFromUrl, parseUploadArchive, titleFromArchiveFileName } from "../serialization";
 import { evaluatePerformance } from "../performanceEvaluator";
 import { startTsServer } from "../tsServer";
 import {
@@ -21,6 +21,16 @@ function toErrorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
+async function fetchArchive(url: string): Promise<ArrayBuffer> {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error(`Could not download the archive (HTTP ${response.status}).`);
+    }
+
+    return response.arrayBuffer();
+}
+
 // Revoking on the next tick, rather than immediately after click(), gives
 // the browser a chance to actually start the download first - some browsers
 // abort it if the object URL is gone by the time they get to it.
@@ -38,7 +48,9 @@ function triggerDownload(blob: Blob, fileName: string): void {
 export class MmSerializationControlsElement extends HTMLElement {
     #downloadButton: HTMLButtonElement;
     #uploadButton: HTMLButtonElement;
+    #importDialog: HTMLDialogElement;
     #fileInput: HTMLInputElement;
+    #urlInput: HTMLInputElement;
 
     #npmBusy = false;
     #downloading = false;
@@ -68,20 +80,50 @@ export class MmSerializationControlsElement extends HTMLElement {
         this.#uploadButton.disabled = true;
         this.#uploadButton.setAttribute("aria-label", "Upload");
         this.#uploadButton.append(createElement(Upload));
+        this.#uploadButton.addEventListener("click", () => this.#openImportDialog());
 
-        // The button is what's shown/clicked - the file input just supplies
-        // the native file picker, kept out of the layout since it renders as
-        // an unstyleable platform widget.
+        const fileLabel = document.createElement("label");
+        fileLabel.htmlFor = "import-file-input";
+        fileLabel.textContent = "From disk";
+
         this.#fileInput = document.createElement("input");
-        this.#fileInput.id = "upload-input";
+        this.#fileInput.id = "import-file-input";
         this.#fileInput.type = "file";
         this.#fileInput.accept = ".zip,application/zip";
-        this.#fileInput.hidden = true;
 
-        this.#uploadButton.addEventListener("click", () => this.#fileInput.click());
-        this.#fileInput.addEventListener("change", () => void this.#handleUpload());
+        const urlLabel = document.createElement("label");
+        urlLabel.htmlFor = "import-url-input";
+        urlLabel.textContent = "From URL";
 
-        this.append(this.#downloadButton, this.#uploadButton, this.#fileInput);
+        this.#urlInput = document.createElement("input");
+        this.#urlInput.id = "import-url-input";
+        this.#urlInput.type = "url";
+
+        const importButton = document.createElement("button");
+        importButton.id = "import-button";
+        importButton.type = "submit";
+        importButton.textContent = "Import";
+
+        const cancelButton = document.createElement("button");
+        cancelButton.id = "cancel-import-button";
+        cancelButton.type = "button";
+        cancelButton.addEventListener("click", () => this.#importDialog.close());
+        cancelButton.textContent = "Cancel";
+
+        const buttonContainer = document.createElement("div");
+        buttonContainer.className = "button-container";
+        buttonContainer.append(importButton, cancelButton);
+
+        const form = document.createElement("form");
+        form.id = "import-form";
+        form.append(fileLabel, this.#fileInput, urlLabel, this.#urlInput, buttonContainer);
+        form.addEventListener("submit", event => this.#handleImportSubmit(event));
+
+        this.#importDialog = document.createElement("dialog");
+        this.#importDialog.id = "import-dialog";
+        this.#importDialog.append(form);
+
+        this.append(this.#downloadButton, this.#uploadButton, this.#importDialog);
     }
 
     connectedCallback(): void {
@@ -142,15 +184,35 @@ export class MmSerializationControlsElement extends HTMLElement {
         }
     }
 
-    async #handleUpload(): Promise<void> {
+    #openImportDialog(): void {
+        this.#fileInput.value = "";
+        this.#urlInput.value = "";
+        this.#importDialog.showModal();
+    }
+
+    async #handleImportSubmit(event: SubmitEvent): Promise<void> {
+        event.preventDefault();
+
+        // The file takes precedence if both are somehow filled in - picking
+        // a file is the more deliberate of the two actions.
         const file = this.#fileInput.files?.[0];
+        const url = this.#urlInput.value.trim();
+
+        if (!file && !url) return;
+
+        this.#importDialog.close();
+
+        if (file) {
+            await this.#importArchive(file.name, () => file.arrayBuffer());
+        } else {
+            await this.#importArchive(filenameFromUrl(url), () => fetchArchive(url));
+        }
+    }
+
+    async #importArchive(name: string, readData: () => Promise<ArrayBuffer>): Promise<void> {
         const editor = document.querySelector<MmEditorElement>("#editor");
 
-        // Cleared up front (rather than in `finally`) so re-selecting the
-        // same file still fires a fresh "change" event next time.
-        this.#fileInput.value = "";
-
-        if (!file || !editor) return;
+        if (!editor) return;
 
         this.#uploading = true;
         this.#updateDisabled();
@@ -160,7 +222,7 @@ export class MmSerializationControlsElement extends HTMLElement {
         document.querySelector<MmTabsElement>(`#${BUILD_TABS_ID}`)?.activatePanel(OUTPUT_PANEL_ID);
 
         try {
-            const { source, packageJson, packageLockJson } = await parseUploadArchive(await file.arrayBuffer());
+            const { source, packageJson, packageLockJson } = await parseUploadArchive(await readData());
 
             dispatchBuildOutput({ status: "info", message: "Installing dependencies..." });
 
@@ -176,7 +238,7 @@ export class MmSerializationControlsElement extends HTMLElement {
             }
 
             editor.setSource(source);
-            document.querySelector<MmEditableTitleElement>("#editable-title")?.setTitle(titleFromArchiveFileName(file.name));
+            document.querySelector<MmEditableTitleElement>("#editable-title")?.setTitle(titleFromArchiveFileName(name));
 
             dispatchBuildOutput({ status: "success", message: "Upload complete." });
         } catch (error) {

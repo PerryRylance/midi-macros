@@ -43,6 +43,24 @@ async function buildUploadFixture(page: Page, source: string): Promise<Buffer> {
     return zip.generateAsync({ type: "nodebuffer" });
 }
 
+async function openImportDialog(page: Page): Promise<void> {
+    await page.locator("#upload-button").click();
+}
+
+async function importFromDisk(page: Page, file: { name: string; mimeType: string; buffer: Buffer }): Promise<void> {
+    await openImportDialog(page);
+    await page.locator("#import-file-input").setInputFiles(file);
+    await page.locator("#import-button").click();
+}
+
+async function importFromUrl(page: Page, url: string, archive: Buffer): Promise<void> {
+    await page.route(url, route => route.fulfill({ status: 200, contentType: "application/zip", body: archive }));
+
+    await openImportDialog(page);
+    await page.locator("#import-url-input").fill(url);
+    await page.locator("#import-button").click();
+}
+
 const MARKER_SOURCE = `${UPLOAD_MARKER}
 import { NoteOnEvent, NoteOffEvent, Track, File } from "@perry-rylance/midi";
 
@@ -62,6 +80,25 @@ test("shows an Upload button in the toolbar", async ({ page }) => {
     await expect(controls.getByRole("button", { name: "Upload" })).toBeVisible();
 });
 
+test("opens a dialog with a file input and a URL input when Upload is clicked", async ({ page }) => {
+    await page.goto("/");
+
+    const uploadButton = page.locator("#serialization-controls").getByRole("button", { name: "Upload" });
+    const dialog = page.locator("#import-dialog");
+
+    await waitUntilContainerSettled(uploadButton);
+
+    await expect(dialog).toBeHidden();
+    await uploadButton.click();
+
+    await expect(dialog).toBeVisible();
+    await expect(page.locator("#import-file-input")).toBeVisible();
+    await expect(page.locator("#import-url-input")).toBeVisible();
+
+    await page.locator("#cancel-import-button").click();
+    await expect(dialog).toBeHidden();
+});
+
 test("uploads a zip, replacing the editor's performance and reinstalling dependencies", async ({ page }) => {
     await page.goto("/");
 
@@ -73,11 +110,7 @@ test("uploads a zip, replacing the editor's performance and reinstalling depende
 
     const archive = await buildUploadFixture(page, MARKER_SOURCE);
 
-    await page.locator("#upload-input").setInputFiles({
-        name: "midi-macros.zip",
-        mimeType: "application/zip",
-        buffer: archive
-    });
+    await importFromDisk(page, { name: "midi-macros.zip", mimeType: "application/zip", buffer: archive });
 
     await expect(output).toContainText("Upload complete.", { timeout: OPERATION_TIMEOUT });
     await expect(editorRoot(page)).toContainText(UPLOAD_MARKER);
@@ -100,14 +133,46 @@ test("sets the title from the uploaded archive's filename", async ({ page }) => 
 
     const archive = await buildUploadFixture(page, MARKER_SOURCE);
 
-    await page.locator("#upload-input").setInputFiles({
-        name: "my-performance.zip",
-        mimeType: "application/zip",
-        buffer: archive
-    });
+    await importFromDisk(page, { name: "my-performance.zip", mimeType: "application/zip", buffer: archive });
 
     await expect(output).toContainText("Upload complete.", { timeout: OPERATION_TIMEOUT });
     await expect(page.locator("#editable-title").getByRole("heading")).toHaveText("my-performance");
+});
+
+test("imports a zip from a URL, replacing the editor's performance and reinstalling dependencies", async ({ page }) => {
+    await page.goto("/");
+
+    const uploadButton = page.locator("#serialization-controls").getByRole("button", { name: "Upload" });
+    const output = page.locator("#build-output-message");
+
+    await waitUntilContainerSettled(uploadButton);
+
+    const archive = await buildUploadFixture(page, MARKER_SOURCE);
+
+    await importFromUrl(page, "https://example.com/fixtures/my-song.zip", archive);
+
+    await expect(output).toContainText("Upload complete.", { timeout: OPERATION_TIMEOUT });
+    await expect(editorRoot(page)).toContainText(UPLOAD_MARKER);
+    await expect(page.locator("#editable-title").getByRole("heading")).toHaveText("my-song");
+});
+
+test("shows an error when the URL can't be fetched", async ({ page }) => {
+    await page.goto("/");
+
+    const uploadButton = page.locator("#serialization-controls").getByRole("button", { name: "Upload" });
+    const output = page.locator("#build-output-message");
+
+    await waitUntilContainerSettled(uploadButton);
+
+    const url = "https://example.com/fixtures/missing.zip";
+    await page.route(url, route => route.fulfill({ status: 404, body: "Not found" }));
+
+    await openImportDialog(page);
+    await page.locator("#import-url-input").fill(url);
+    await page.locator("#import-button").click();
+
+    await expect(output).toContainText("HTTP 404", { timeout: BOOT_TIMEOUT });
+    await expect(uploadButton).toBeEnabled();
 });
 
 test("disables playback, download and upload while an upload is processing, then re-enables them", async ({ page }) => {
@@ -122,11 +187,7 @@ test("disables playback, download and upload while an upload is processing, then
 
     const archive = await buildUploadFixture(page, MARKER_SOURCE);
 
-    await page.locator("#upload-input").setInputFiles({
-        name: "midi-macros.zip",
-        mimeType: "application/zip",
-        buffer: archive
-    });
+    await importFromDisk(page, { name: "midi-macros.zip", mimeType: "application/zip", buffer: archive });
 
     await expect(uploadButton).toBeDisabled();
     await expect(downloadButton).toBeDisabled();
@@ -157,11 +218,7 @@ test("shows an error and leaves playback usable when the archive is missing a re
     // package-lock.json deliberately omitted.
     const archive = await zip.generateAsync({ type: "nodebuffer" });
 
-    await page.locator("#upload-input").setInputFiles({
-        name: "midi-macros.zip",
-        mimeType: "application/zip",
-        buffer: archive
-    });
+    await importFromDisk(page, { name: "midi-macros.zip", mimeType: "application/zip", buffer: archive });
 
     await expect(output).toContainText("package-lock.json", { timeout: BOOT_TIMEOUT });
     await expect(editorRoot(page)).not.toContainText(UPLOAD_MARKER);
@@ -178,7 +235,7 @@ test("shows an error for a file that isn't a valid ZIP", async ({ page }) => {
 
     await waitUntilContainerSettled(uploadButton);
 
-    await page.locator("#upload-input").setInputFiles({
+    await importFromDisk(page, {
         name: "not-a-zip.zip",
         mimeType: "application/zip",
         buffer: Buffer.from("this is definitely not a zip file")

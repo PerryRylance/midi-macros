@@ -48,11 +48,21 @@ export class MmEditableTitleElement extends HTMLElement {
         return this.#heading.textContent ?? "";
     }
 
-    // Used to populate the title from an uploaded archive's filename - goes
-    // through the same #applyTitle() path as a manual edit, so it updates the
-    // heading, window title and persisted value identically.
+    // Used to populate the title from an uploaded/imported archive's filename
+    // - falls back to the default for a blank value (e.g. a URL with no path
+    // segment), same as clearing the heading by hand does on blur.
     setTitle(value: string): void {
-        this.#applyTitle(value);
+        this.#commitTitle(value);
+    }
+
+    // Falls back to DEFAULT_TITLE for a blank value, then applies - shared by
+    // setTitle() and blurring an emptied input. Deliberately not used by the
+    // live "input" listener below, which applies the raw value as-is so the
+    // heading can go genuinely blank while the user is still typing/backspacing.
+    #commitTitle(value: string): void {
+        const trimmed = value.trim();
+
+        this.#applyTitle(trimmed.length > 0 ? value : DEFAULT_TITLE);
     }
 
     #applyTitle(value: string): void {
@@ -70,7 +80,7 @@ export class MmEditableTitleElement extends HTMLElement {
     }
 
     #stopEditing(): void {
-        if (this.#input.value.trim().length === 0) this.#applyTitle(DEFAULT_TITLE);
+        this.#commitTitle(this.#input.value);
 
         this.#input.hidden = true;
         this.#heading.hidden = false;

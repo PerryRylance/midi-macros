@@ -17,6 +17,19 @@ export function titleFromArchiveFileName(fileName: string): string {
     return fileName.replace(/\.zip$/i, "");
 }
 
+// Used to populate the title from a "Load from URL" import - the last path
+// segment, same idea as titleFromArchiveFileName but for a URL rather than a
+// File's own .name. A URL with no path segment (e.g. "https://example.com/")
+// yields an empty string; mm-editable-title's setTitle() falls back to
+// DEFAULT_TITLE for a blank value, same as it does when a user clears the
+// heading by hand.
+export function filenameFromUrl(url: string): string {
+    const { pathname } = new URL(url);
+    const segment = pathname.substring(pathname.lastIndexOf("/") + 1);
+
+    return decodeURIComponent(segment);
+}
+
 export const GENERATED_MIDI_FILE_NAME = "generated.mid";
 
 export interface DownloadArchiveInput {

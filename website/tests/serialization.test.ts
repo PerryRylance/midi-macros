@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
-import { archiveFileName, buildDownloadArchive, InvalidArchiveError, parseUploadArchive, titleFromArchiveFileName } from "../src/serialization";
+import { archiveFileName, buildDownloadArchive, filenameFromUrl, InvalidArchiveError, parseUploadArchive, titleFromArchiveFileName } from "../src/serialization";
 
 const VALID_FILES = {
     source: "export default 1;\n",
@@ -116,5 +116,23 @@ describe("titleFromArchiveFileName", () => {
 
     it("leaves a name with no .zip extension untouched", () => {
         expect(titleFromArchiveFileName("My Song")).toBe("My Song");
+    });
+});
+
+describe("filenameFromUrl", () => {
+    it("extracts the last path segment", () => {
+        expect(filenameFromUrl("https://example.com/path/to/my-song.zip")).toBe("my-song.zip");
+    });
+
+    it("ignores a query string", () => {
+        expect(filenameFromUrl("https://example.com/my-song.zip?token=abc")).toBe("my-song.zip");
+    });
+
+    it("decodes percent-encoded characters", () => {
+        expect(filenameFromUrl("https://example.com/my%20song.zip")).toBe("my song.zip");
+    });
+
+    it("returns an empty string for a URL with no path segment", () => {
+        expect(filenameFromUrl("https://example.com/")).toBe("");
     });
 });

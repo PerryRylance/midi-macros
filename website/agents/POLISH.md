@@ -12,8 +12,12 @@
 
 ## Include MIDI in ZIP
 - When exporting, also generate a fresh MIDI from the performance and include it in the zip file as generated.mid
+! When generation fails, still export but without MIDI file
 
 ## Load from URL
 - Update the import to open a dialog, same pattern as the package manager
 - The dialog will have a file input for loading from disk
 - The dialog will have a text input, type URL, for loading from URL - if you need the lead developer to generate a fixture please let me know
+
+## Terminal
+! Can we enable ANSI colours?
