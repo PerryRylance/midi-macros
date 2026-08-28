@@ -21,3 +21,6 @@
 
 ## Terminal
 ! Can we enable ANSI colours?
+
+## Debugging
+- Browsers debugger into the webcontainer?

@@ -158,17 +158,28 @@ export class MmSerializationControlsElement extends HTMLElement {
 
             const source = editor.getSource();
 
-            const [packageJson, packageLockJson, { midi }] = await Promise.all([
+            const [packageJson, packageLockJson] = await Promise.all([
                 container.fs.readFile("package.json", "utf-8"),
-                container.fs.readFile("package-lock.json", "utf-8"),
-                evaluatePerformance(container, source)
+                container.fs.readFile("package-lock.json", "utf-8")
             ]);
+
+            // A performance that can't currently be rendered (e.g. mid-edit,
+            // or a genuine bug) shouldn't block exporting the source itself -
+            // only generated.mid is skipped, with an error noted alongside
+            // the eventual "Download ready." success message.
+            let midi: ArrayBuffer | undefined;
+
+            try {
+                ({ midi } = await evaluatePerformance(container, source));
+            } catch (error) {
+                dispatchBuildOutput({ status: "error", message: `Could not generate MIDI: ${toErrorMessage(error)}` });
+            }
 
             const archive = await buildDownloadArchive({
                 source,
                 packageJson,
                 packageLockJson,
-                midi
+                ...(midi ? { midi } : {})
             });
 
             const title = document.querySelector<MmEditableTitleElement>("#editable-title")?.getTitle() ?? "";

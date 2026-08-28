@@ -75,6 +75,9 @@ test("names the downloaded zip after the current title", async ({ page }) => {
     await waitUntilContainerSettled(downloadButton);
 
     const title = page.locator("#editable-title");
+    // The edit button is `visibility: hidden` until #editable-title is
+    // hovered (see style.scss and e2e/title.spec.ts).
+    await title.hover();
     await title.getByRole("button", { name: "Edit title" }).click();
     await page.locator("#title-input").fill("My Song");
     await page.locator("#toolbar").click();
@@ -87,7 +90,7 @@ test("names the downloaded zip after the current title", async ({ page }) => {
     expect(download.suggestedFilename()).toBe("My Song.zip");
 });
 
-test("shows an error and doesn't produce a download when the performance can't be rendered to MIDI", async ({ page }) => {
+test("still downloads a zip, without generated.mid, when the performance can't be rendered to MIDI", async ({ page }) => {
     await page.goto("/");
 
     const downloadButton = page.locator("#serialization-controls").getByRole("button", { name: "Download" });
@@ -99,14 +102,19 @@ test("shows an error and doesn't produce a download when the performance can't b
     // performanceEvaluator.ts), same case covered for Play in playback.spec.ts.
     await replaceEditorContent(page, "export const x = 1;");
 
-    let downloadFired = false;
-    page.once("download", () => { downloadFired = true; });
+    const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        downloadButton.click()
+    ]);
 
-    await downloadButton.click();
-
-    await expect(output).toContainText("No default export", { timeout: OPERATION_TIMEOUT });
+    await expect(output).toContainText("Could not generate MIDI", { timeout: OPERATION_TIMEOUT });
+    await expect(output).toContainText("Download ready.", { timeout: OPERATION_TIMEOUT });
     await expect(downloadButton).toBeEnabled();
-    expect(downloadFired).toBe(false);
+
+    const archivePath = await download.path();
+    const zip = await JSZip.loadAsync(readFileSync(archivePath!));
+
+    expect(Object.keys(zip.files).sort()).toEqual(["package-lock.json", "package.json", "performance.ts"]);
 });
 
 test("disables the download button while npm installs a package, and re-enables it once done", async ({ page }) => {

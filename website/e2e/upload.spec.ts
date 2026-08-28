@@ -139,7 +139,7 @@ test("sets the title from the uploaded archive's filename", async ({ page }) => 
     await expect(page.locator("#editable-title").getByRole("heading")).toHaveText("my-performance");
 });
 
-test("imports a zip from a URL, replacing the editor's performance and reinstalling dependencies", async ({ page }) => {
+test("imports a real fixture zip from a URL, replacing the editor's performance and reinstalling dependencies", async ({ page }) => {
     await page.goto("/");
 
     const uploadButton = page.locator("#serialization-controls").getByRole("button", { name: "Upload" });
@@ -147,13 +147,20 @@ test("imports a zip from a URL, replacing the editor's performance and reinstall
 
     await waitUntilContainerSettled(uploadButton);
 
-    const archive = await buildUploadFixture(page, MARKER_SOURCE);
+    const archive = await readFile("tests/fixtures/C Major ascending.zip");
 
-    await importFromUrl(page, "https://example.com/fixtures/my-song.zip", archive);
+    await importFromUrl(page, "https://example.com/fixtures/C%20Major%20ascending.zip", archive);
 
     await expect(output).toContainText("Upload complete.", { timeout: OPERATION_TIMEOUT });
-    await expect(editorRoot(page)).toContainText(UPLOAD_MARKER);
-    await expect(page.locator("#editable-title").getByRole("heading")).toHaveText("my-song");
+    await expect(editorRoot(page)).toContainText("semitone");
+    await expect(page.locator("#editable-title").getByRole("heading")).toHaveText("C Major ascending");
+
+    // The uploaded project's own dependencies were reinstalled, not just its
+    // source swapped in - Play should still work against this performance.
+    const playbackControls = page.locator("#playback-controls");
+    await expect(playbackControls.getByRole("button", { name: "Play" })).toBeEnabled({ timeout: OPERATION_TIMEOUT });
+    await playbackControls.getByRole("button", { name: "Play" }).click();
+    await expect(output).toContainText("Build successful.", { timeout: OPERATION_TIMEOUT });
 });
 
 test("shows an error when the URL can't be fetched", async ({ page }) => {

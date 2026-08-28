@@ -2,12 +2,17 @@ import { test, expect } from "@playwright/test";
 
 const STORAGE_KEY = "title";
 
-test("shows the default title as a heading, with an edit button next to it", async ({ page }) => {
+test("shows the default title as a heading, with an edit button revealed on hover", async ({ page }) => {
     await page.goto("/");
 
     const title = page.locator("#editable-title");
 
     await expect(title.getByRole("heading", { name: "MIDI Macros" })).toBeVisible();
+
+    // The edit button is `visibility: hidden` until #editable-title is
+    // hovered (see style.scss) - same hover-to-reveal pattern as the package
+    // list's Remove buttons (see foundations.spec.ts).
+    await title.hover();
     await expect(title.getByRole("button", { name: "Edit title" })).toBeVisible();
 });
 
@@ -18,6 +23,7 @@ test("turns into a text input while editing, updating the heading, window title 
     const heading = title.getByRole("heading");
     const input = page.locator("#title-input");
 
+    await title.hover();
     await title.getByRole("button", { name: "Edit title" }).click();
 
     await expect(input).toBeVisible();
@@ -43,6 +49,7 @@ test("pressing Enter while editing blurs the input, reverting it to a heading", 
     const heading = title.getByRole("heading");
     const input = page.locator("#title-input");
 
+    await title.hover();
     await title.getByRole("button", { name: "Edit title" }).click();
     await input.fill("My Song");
     await input.press("Enter");
@@ -59,6 +66,7 @@ test("falls back to the default title when cleared to blank", async ({ page }) =
     const heading = title.getByRole("heading");
     const input = page.locator("#title-input");
 
+    await title.hover();
     await title.getByRole("button", { name: "Edit title" }).click();
     await input.fill("");
     await input.press("Enter");
