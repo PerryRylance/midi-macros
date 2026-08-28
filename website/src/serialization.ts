@@ -17,10 +17,17 @@ export function titleFromArchiveFileName(fileName: string): string {
     return fileName.replace(/\.zip$/i, "");
 }
 
+export const GENERATED_MIDI_FILE_NAME = "generated.mid";
+
 export interface DownloadArchiveInput {
     source: string;
     packageJson: string;
     packageLockJson: string;
+    // Omitted by the autosave snapshot (see autosave.ts) - that archive is
+    // only ever read back by parseUploadArchive, which never looks at
+    // generated.mid, so there's no reason to pay for a fresh render on every
+    // debounce tick.
+    midi?: ArrayBuffer;
 }
 
 export async function buildDownloadArchive(input: DownloadArchiveInput): Promise<Blob> {
@@ -29,6 +36,8 @@ export async function buildDownloadArchive(input: DownloadArchiveInput): Promise
     zip.file(PERFORMANCE_FILE_NAME, input.source);
     zip.file("package.json", input.packageJson);
     zip.file("package-lock.json", input.packageLockJson);
+
+    if (input.midi) zip.file(GENERATED_MIDI_FILE_NAME, input.midi);
 
     // JSZip defaults to STORE (no compression) unless told otherwise.
     return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 9 } });

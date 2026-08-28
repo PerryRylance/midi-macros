@@ -7,6 +7,16 @@ async function openPackagesTab(page: import("@playwright/test").Page): Promise<v
     await page.locator("#tab-button-packages").click();
 }
 
+function editorRoot(page: import("@playwright/test").Page) {
+    return page.locator(".monaco-editor[data-uri]");
+}
+
+async function replaceEditorContent(page: import("@playwright/test").Page, text: string): Promise<void> {
+    await editorRoot(page).locator("textarea").click();
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type(text);
+}
+
 test("shows a Download button in the toolbar", async ({ page }) => {
     await page.goto("/");
 
@@ -15,7 +25,7 @@ test("shows a Download button in the toolbar", async ({ page }) => {
     await expect(controls.getByRole("button", { name: "Download" })).toBeVisible();
 });
 
-test("downloads a zip of the performance, package.json and package-lock.json, disabling the button meanwhile", async ({ page }) => {
+test("downloads a zip of the performance, package.json, package-lock.json and a generated MIDI, disabling the button meanwhile", async ({ page }) => {
     await page.goto("/");
 
     const controls = page.locator("#serialization-controls");
@@ -49,9 +59,12 @@ test("downloads a zip of the performance, package.json and package-lock.json, di
     const archivePath = await download.path();
     const zip = await JSZip.loadAsync(readFileSync(archivePath!));
 
-    expect(Object.keys(zip.files).sort()).toEqual(["package-lock.json", "package.json", "performance.ts"]);
+    expect(Object.keys(zip.files).sort()).toEqual(["generated.mid", "package-lock.json", "package.json", "performance.ts"]);
     expect(await zip.file("performance.ts")!.async("string")).toContain("NoteOnEvent");
     expect(JSON.parse(await zip.file("package.json")!.async("string")).name).toBe("sandbox");
+
+    const midiBytes = await zip.file("generated.mid")!.async("nodebuffer");
+    expect(midiBytes.subarray(0, 4).toString("ascii")).toBe("MThd");
 });
 
 test("names the downloaded zip after the current title", async ({ page }) => {
@@ -72,6 +85,28 @@ test("names the downloaded zip after the current title", async ({ page }) => {
     ]);
 
     expect(download.suggestedFilename()).toBe("My Song.zip");
+});
+
+test("shows an error and doesn't produce a download when the performance can't be rendered to MIDI", async ({ page }) => {
+    await page.goto("/");
+
+    const downloadButton = page.locator("#serialization-controls").getByRole("button", { name: "Download" });
+    const output = page.locator("#build-output-message");
+
+    await waitUntilContainerSettled(downloadButton);
+
+    // No default export at all - a real TypeScript compiler diagnostic (see
+    // performanceEvaluator.ts), same case covered for Play in playback.spec.ts.
+    await replaceEditorContent(page, "export const x = 1;");
+
+    let downloadFired = false;
+    page.once("download", () => { downloadFired = true; });
+
+    await downloadButton.click();
+
+    await expect(output).toContainText("No default export", { timeout: OPERATION_TIMEOUT });
+    await expect(downloadButton).toBeEnabled();
+    expect(downloadFired).toBe(false);
 });
 
 test("disables the download button while npm installs a package, and re-enables it once done", async ({ page }) => {

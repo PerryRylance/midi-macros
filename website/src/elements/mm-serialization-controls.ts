@@ -1,6 +1,8 @@
 import { createElement, Download, Upload } from "lucide";
 import { bootWebContainer, loadUploadedProject, onNpmBusyChange } from "../webcontainer";
 import { archiveFileName, buildDownloadArchive, parseUploadArchive, titleFromArchiveFileName } from "../serialization";
+import { evaluatePerformance } from "../performanceEvaluator";
+import { startTsServer } from "../tsServer";
 import {
     dispatchBuildOutput,
     dispatchBuildOutputClear,
@@ -110,16 +112,21 @@ export class MmSerializationControlsElement extends HTMLElement {
 
         try {
             const container = await bootWebContainer();
+            await startTsServer(container);
 
-            const [packageJson, packageLockJson] = await Promise.all([
+            const source = editor.getSource();
+
+            const [packageJson, packageLockJson, { midi }] = await Promise.all([
                 container.fs.readFile("package.json", "utf-8"),
-                container.fs.readFile("package-lock.json", "utf-8")
+                container.fs.readFile("package-lock.json", "utf-8"),
+                evaluatePerformance(container, source)
             ]);
 
             const archive = await buildDownloadArchive({
-                source: editor.getSource(),
+                source,
                 packageJson,
-                packageLockJson
+                packageLockJson,
+                midi
             });
 
             const title = document.querySelector<MmEditableTitleElement>("#editable-title")?.getTitle() ?? "";

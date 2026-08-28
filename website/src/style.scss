@@ -24,6 +24,7 @@ button
     background-color: transparent;
     color: $light-text;
     border: none;
+    outline: none;
 
     &:disabled
     {
@@ -314,5 +315,27 @@ mm-editor
     .mm-highlighted-event, .mm-highlighted-element
     {
         background-color: $highlight-fill;
+    }
+}
+
+#editable-title
+{
+    display: flex;
+    align-items: start;
+
+    #edit-title-button 
+    {
+        visibility: hidden;
+
+        svg
+        {
+            width: auto;
+            height: .66lh;
+        }
+    }
+
+    &:hover #edit-title-button
+    {
+        visibility: visible;
     }
 }

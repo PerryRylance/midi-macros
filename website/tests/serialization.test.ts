@@ -8,6 +8,8 @@ const VALID_FILES = {
     packageLockJson: "{\"lockfileVersion\":3}"
 };
 
+const MIDI_BYTES = new Uint8Array([0x4d, 0x54, 0x68, 0x64]).buffer;
+
 function buildZip(files: Partial<Record<"performance.ts" | "package.json" | "package-lock.json", string>>): Promise<ArrayBuffer> {
     const zip = new JSZip();
 
@@ -19,19 +21,21 @@ function buildZip(files: Partial<Record<"performance.ts" | "package.json" | "pac
 }
 
 describe("buildDownloadArchive", () => {
-    it("zips the performance source, package.json and package-lock.json under fixed names", async () => {
+    it("zips the performance source, package.json, package-lock.json and generated MIDI under fixed names", async () => {
         const blob = await buildDownloadArchive({
             source: "export default 1;\n",
             packageJson: "{\"name\":\"sandbox\"}",
-            packageLockJson: "{\"lockfileVersion\":3}"
+            packageLockJson: "{\"lockfileVersion\":3}",
+            midi: MIDI_BYTES
         });
 
         const zip = await JSZip.loadAsync(await blob.arrayBuffer());
 
-        expect(Object.keys(zip.files).sort()).toEqual(["package-lock.json", "package.json", "performance.ts"]);
+        expect(Object.keys(zip.files).sort()).toEqual(["generated.mid", "package-lock.json", "package.json", "performance.ts"]);
         expect(await zip.file("performance.ts")!.async("string")).toBe("export default 1;\n");
         expect(await zip.file("package.json")!.async("string")).toBe("{\"name\":\"sandbox\"}");
         expect(await zip.file("package-lock.json")!.async("string")).toBe("{\"lockfileVersion\":3}");
+        expect(await zip.file("generated.mid")!.async("arraybuffer")).toEqual(MIDI_BYTES);
     });
 
     it("compresses the archive instead of storing files uncompressed", async () => {
@@ -40,7 +44,8 @@ describe("buildDownloadArchive", () => {
         const blob = await buildDownloadArchive({
             source: repetitive,
             packageJson: repetitive,
-            packageLockJson: repetitive
+            packageLockJson: repetitive,
+            midi: MIDI_BYTES
         });
 
         expect(blob.size).toBeLessThan(repetitive.length / 10);
