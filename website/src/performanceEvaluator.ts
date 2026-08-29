@@ -293,10 +293,21 @@ const resolver = new TimeResolver(exported, { stable: true });
 
 const timeline = [];
 resolver.tracks.forEach((track, trackIndex) => {
-    track.events.forEach(resolved => {
+    track.events.forEach((resolved, eventIndex, events) => {
         const range = resolved.original.__sourceRange;
 
         if (!range) return;
+
+        // Excludes events that never get a visible moment on screen: the
+        // last event in the track has nothing after it to highlight over
+        // it, and an event immediately followed (zero delta) by another one
+        // is superseded before a frame could ever show it alone - e.g. a
+        // NoteOffEvent immediately followed by the next note's NoteOnEvent
+        // at the same instant, which otherwise highlighted both notes'
+        // array elements at once. A CC ramp's events, having real delta
+        // between them, are unaffected.
+        const next = events[eventIndex + 1];
+        if (!next || next.original.delta() === 0) return;
 
         const elementRanges = (resolved.original.__iterationContext || [])
             .map(frame => frame.elementRange)

@@ -125,6 +125,21 @@ describe("evaluatePerformance", () => {
         expect(runnerScript).toContain('"flatMap"');
     });
 
+    it("excludes an event from the timeline when it's the track's last event or is immediately followed by a zero-delta event", async () => {
+        const { container, writeFile } = createFakeContainer();
+
+        await evaluatePerformance(container, "export default 1;");
+
+        const [, runnerScript] = writeFile.mock.calls.find(call => call[0] === "run-performance.cjs")!;
+        // Otherwise an event with no visible moment on screen (superseded
+        // before a frame could ever show it alone, e.g. a NoteOffEvent
+        // immediately followed by the next note's NoteOnEvent at the same
+        // instant) still gets a timeline entry, and the highlight loop shows
+        // both notes' array elements at once instead of just the current one.
+        expect(runnerScript).toContain("next.original.delta() === 0");
+        expect(runnerScript).toContain("if (!next || next.original.delta() === 0) return;");
+    });
+
     it("throws a PerformanceEvaluationError with the collected output when the process exits non-zero", async () => {
         const { container } = createFakeContainer({
             exitCode: 1,
