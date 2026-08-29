@@ -1,9 +1,9 @@
 name: Cloudflare Pages Deploy
 on:
   push:
-    branches: [production]
+    branches: [website]
   pull_request:
-    branches: [production]
+    branches: [website]
 
 # Deny all permissions by default; grant only what each job needs.
 permissions: {}
