@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
 import { archiveFileName, buildDownloadArchive, filenameFromUrl, InvalidArchiveError, parseUploadArchive, titleFromArchiveFileName } from "../src/serialization";
+import dockerfileContents from "../src/stubs/Dockerfile.stub?raw";
+import dockerComposeContents from "../src/stubs/docker-compose.yml.stub?raw";
+import runScriptContents from "../src/stubs/run.ts.stub?raw";
+import launchJsonContents from "../src/stubs/launch.json.stub?raw";
+import dockerReadmeContents from "../src/stubs/README.md.stub?raw";
+
+const DOCKER_EXPORT_FILE_NAMES = [".vscode/", ".vscode/launch.json", "Dockerfile", "README.md", "docker-compose.yml", "run.ts"];
 
 const VALID_FILES = {
     source: "export default 1;\n",
@@ -31,11 +38,39 @@ describe("buildDownloadArchive", () => {
 
         const zip = await JSZip.loadAsync(await blob.arrayBuffer());
 
-        expect(Object.keys(zip.files).sort()).toEqual(["generated.mid", "package-lock.json", "package.json", "performance.ts"]);
+        expect(Object.keys(zip.files).sort()).toEqual(
+            ["generated.mid", "package-lock.json", "package.json", "performance.ts", ...DOCKER_EXPORT_FILE_NAMES].sort()
+        );
         expect(await zip.file("performance.ts")!.async("string")).toBe("export default 1;\n");
         expect(await zip.file("package.json")!.async("string")).toBe("{\"name\":\"sandbox\"}");
         expect(await zip.file("package-lock.json")!.async("string")).toBe("{\"lockfileVersion\":3}");
         expect(await zip.file("generated.mid")!.async("arraybuffer")).toEqual(MIDI_BYTES);
+    });
+
+    it("includes the Docker debugging setup, matching the stub files exactly", async () => {
+        const blob = await buildDownloadArchive(VALID_FILES);
+
+        const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+
+        expect(await zip.file("Dockerfile")!.async("string")).toBe(dockerfileContents);
+        expect(await zip.file("docker-compose.yml")!.async("string")).toBe(dockerComposeContents);
+        expect(await zip.file("run.ts")!.async("string")).toBe(runScriptContents);
+        expect(await zip.file("README.md")!.async("string")).toBe(dockerReadmeContents);
+        expect(await zip.file(".vscode/launch.json")!.async("string")).toBe(launchJsonContents);
+    });
+
+    it("includes the Docker debugging setup even when no MIDI could be rendered", async () => {
+        const blob = await buildDownloadArchive({
+            source: "export const x = 1;\n",
+            packageJson: "{\"name\":\"sandbox\"}",
+            packageLockJson: "{\"lockfileVersion\":3}"
+        });
+
+        const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+
+        for (const name of DOCKER_EXPORT_FILE_NAMES) {
+            expect(Object.keys(zip.files)).toContain(name);
+        }
     });
 
     it("compresses the archive instead of storing files uncompressed", async () => {

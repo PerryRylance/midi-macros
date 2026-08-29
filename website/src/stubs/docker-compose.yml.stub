@@ -1,0 +1,22 @@
+services:
+  app:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ${OUTPUT_DIR:-.}:/output
+    environment:
+      - OUTPUT_PATH=/output/generated.mid
+    command: tsx run.ts
+
+  debug:
+    build: .
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - ${OUTPUT_DIR:-.}:/output
+    environment:
+      - OUTPUT_PATH=/output/generated.mid
+    ports:
+      - "9229:9229"
+    command: tsx --inspect-brk=0.0.0.0:9229 run.ts

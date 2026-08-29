@@ -6,8 +6,10 @@ import "monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution.
 import "monaco-editor/esm/vs/editor/editor.all.js";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api.js";
 import { buildWorkerDefinition } from "monaco-editor-workers";
+import type { WebContainer } from "@webcontainer/api";
 import { bootWebContainer } from "../webcontainer";
 import { startTsServer } from "../tsServer";
+import { waitForInitialRestore } from "../autosave";
 import { dispatchEditorChanged, UPLOAD_BUSY_EVENT, UPLOAD_IDLE_EVENT } from "../events";
 import { createTsServerClient, type TsServerClient, type TsServerEvent } from "../tsServerClient";
 import { createEchoFilter } from "../echoFilter";
@@ -36,13 +38,20 @@ const SUGGESTION_MARKER_OWNER = "tsserver-suggestion";
 // Must match the WebContainer's real workdir (set via `workdirName: "workspace"`
 // in webcontainer.ts) or tsserver can't resolve node_modules imports relative
 // to this file - it needs a real, on-disk-equivalent path, not just a URI.
+// Only for tsserver's own protocol messages, which run inside a real spawned
+// `node` process and need a genuine absolute path - `container.fs.*` calls
+// are already rooted at the workdir, so those use the *_RELATIVE_FILE_NAME
+// constants below instead; passing one of these absolute paths to `fs`
+// double-prefixes it (e.g. "/home/workspace/home/workspace/.warmup.ts").
 const WORKDIR_ROOT_PATH = "/home/workspace";
 const WORKDIR_FILE_PATH = `${WORKDIR_ROOT_PATH}/index.ts`;
 const MODEL_URI = `file://${WORKDIR_FILE_PATH}`;
+const WORKDIR_RELATIVE_FILE_NAME = "index.ts";
 // Never shown to the user - see the "warming up" comment in #connectTsServer.
 const WARMUP_FILE_PATH = `${WORKDIR_ROOT_PATH}/.warmup.ts`;
+const WARMUP_RELATIVE_FILE_NAME = ".warmup.ts";
 
-import DEFAULT_SOURCE from "../default.performance.ts.stub?raw";
+import DEFAULT_SOURCE from "../stubs/default.performance.ts.stub?raw";
 
 // tsserver's own debounce for diagnostics is per-request (the `delay` field
 // on `geterr`), not per-keystroke - this avoids flooding it with a fresh
@@ -88,6 +97,7 @@ export class MmEditorElement extends HTMLElement {
     #highlightDecorationIds: string[] = [];
     #tsServerClient: TsServerClient | undefined;
     #syncTimer: ReturnType<typeof setTimeout> | undefined;
+    #container: WebContainer | undefined;
 
     // Toggles the inline `display` alongside `hidden` - an inline style
     // always wins over any external stylesheet rule regardless of selector
@@ -207,7 +217,12 @@ export class MmEditorElement extends HTMLElement {
         // TEMPORARY: dump tsserver <-> Monaco connection lifecycle to the console for debugging.
         console.log("[lsp] booting container...");
         const container = await bootWebContainer();
-        console.log("[lsp] container ready, installing/starting tsserver...");
+        console.log("[lsp] container ready, waiting for any saved-performance restore...");
+        // Must resolve before startTsServer - see waitForInitialRestore's own
+        // comment for why a concurrent restore's `npm ci` can otherwise crash
+        // tsserver's `node` process mid-startup.
+        await waitForInitialRestore();
+        console.log("[lsp] installing/starting tsserver...");
         const process = await startTsServer(container);
         console.log("[lsp] tsserver process spawned");
 
@@ -224,6 +239,7 @@ export class MmEditorElement extends HTMLElement {
         client.onEvent(event => this.#handleTsServerEvent(event));
 
         this.#tsServerClient = client;
+        this.#container = container;
 
         // tsserver never attaches a real project to the very first file
         // opened in a session - confirmed empirically: `quickinfo` fails
@@ -231,7 +247,18 @@ export class MmEditorElement extends HTMLElement {
         // name/content/projectRootPath, while the *second* file opened works
         // correctly. Opening a disposable warm-up file first works around
         // this so the user's actual document is never "file #1".
+        //
+        // It also needs to actually exist on disk before it's opened: our
+        // tsconfig.json relies on the default `include: ["**/*"]`, which
+        // resolves via a real directory scan - a file only ever `open`ed
+        // in-memory (fileContent, never written) is invisible to that scan,
+        // so the configured project ends up with zero root files ("No inputs
+        // were found") and the file falls back to a default-options project
+        // missing ES2019+ lib methods like flatMap. Confirmed via a captured
+        // window.__lspLog: configFileDiag reported exactly that "No inputs"
+        // error, immediately followed by the bogus flatMap diagnostic.
         console.log("[lsp] warming up tsserver's project service...");
+        await container.fs.writeFile(WARMUP_RELATIVE_FILE_NAME, "");
         void client.sendCommand("open", {
             file: WARMUP_FILE_PATH,
             fileContent: "",
@@ -252,8 +279,19 @@ export class MmEditorElement extends HTMLElement {
 
     #syncDocument(): void {
         const client = this.#tsServerClient;
+        const container = this.#container;
 
-        if (!client) return;
+        if (!client || !container) return;
+
+        const content = this.#model.getValue();
+
+        // Keeps a real on-disk copy so the file stays discoverable by
+        // tsconfig.json's directory-scanned `include` (see the comment in
+        // #connectTsServer) - tsserver's `open` overlay always takes
+        // precedence over disk content for diagnostics/checking once a file
+        // is open, same as any editor's unsaved-buffer semantics, so this
+        // doesn't need to happen before `open`/`geterr`, just alongside them.
+        void container.fs.writeFile(WORKDIR_RELATIVE_FILE_NAME, content);
 
         // tsserver treats `open` on an already-open file as a full content
         // replacement, so re-opening on every change avoids having to track
@@ -267,7 +305,7 @@ export class MmEditorElement extends HTMLElement {
         // rootless, ad-hoc "dynamic" file with no durable project lifecycle.
         void client.sendCommand("open", {
             file: WORKDIR_FILE_PATH,
-            fileContent: this.#model.getValue(),
+            fileContent: content,
             scriptKindName: "TS",
             projectRootPath: WORKDIR_ROOT_PATH
         });

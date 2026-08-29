@@ -1,0 +1,7 @@
+import { writeFileSync } from "node:fs";
+import performance from "./performance";
+
+const outputPath = process.env.OUTPUT_PATH ?? "generated.mid";
+
+writeFileSync(outputPath, Buffer.from(performance.toArrayBuffer()));
+console.log(`Wrote ${outputPath}`);

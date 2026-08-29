@@ -75,12 +75,25 @@ async function saveCurrentPerformance(editor: MmEditorElement): Promise<void> {
     }
 }
 
+let initialRestore: Promise<void> = Promise.resolve();
+
+// mm-editor.ts awaits this before starting tsserver - restoreSavedPerformance's
+// `npm ci` and startTsServer's tooling install both go through webcontainer.ts's
+// shared npmQueue, but tsserver.js's own `node` process spawn does not, so
+// without this a `npm ci` still in flight (or not yet even enqueued, e.g.
+// while parseUploadArchive/mount are still running) can wipe/reinstall
+// node_modules while tsserver is mid-`require()`, crashing it with
+// "Cannot find module .../tsserver.js".
+export function waitForInitialRestore(): Promise<void> {
+    return initialRestore;
+}
+
 function initAutosave(): void {
     const editor = document.querySelector<MmEditorElement>("#editor");
 
     if (!editor) return;
 
-    void restoreSavedPerformance(editor);
+    initialRestore = restoreSavedPerformance(editor);
 
     let timer: ReturnType<typeof setTimeout> | undefined;
 

@@ -1,5 +1,21 @@
 import JSZip from "jszip";
 import { PERFORMANCE_FILE_NAME } from "./performanceEvaluator";
+import dockerfileContents from "./stubs/Dockerfile.stub?raw";
+import dockerComposeContents from "./stubs/docker-compose.yml.stub?raw";
+import runScriptContents from "./stubs/run.ts.stub?raw";
+import launchJsonContents from "./stubs/launch.json.stub?raw";
+import dockerReadmeContents from "./stubs/README.md.stub?raw";
+
+// Identical for every export (no per-user interpolation) - unlike
+// DownloadArchiveInput's fields, so these aren't parameters, just fixed
+// zip entries.
+const DOCKER_EXPORT_FILES: Record<string, string> = {
+    Dockerfile: dockerfileContents,
+    "docker-compose.yml": dockerComposeContents,
+    "run.ts": runScriptContents,
+    "README.md": dockerReadmeContents,
+    ".vscode/launch.json": launchJsonContents
+};
 
 // Shared with mm-editable-title.ts, which falls back to this same string when
 // no title has ever been saved - keeping the two in sync here means a blank
@@ -51,6 +67,10 @@ export async function buildDownloadArchive(input: DownloadArchiveInput): Promise
     zip.file("package-lock.json", input.packageLockJson);
 
     if (input.midi) zip.file(GENERATED_MIDI_FILE_NAME, input.midi);
+
+    for (const [name, contents] of Object.entries(DOCKER_EXPORT_FILES)) {
+        zip.file(name, contents);
+    }
 
     // JSZip defaults to STORE (no compression) unless told otherwise.
     return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 9 } });

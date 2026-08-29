@@ -1,0 +1,48 @@
+# Debugging this performance locally
+
+This export includes a small Docker setup for running `performance.ts`
+outside the browser, with full breakpoint debugging support - including
+stepping into `node_modules` - which the in-browser sandbox can't offer.
+
+## Requirements
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or any
+  Docker Engine with the Compose plugin)
+- [VS Code](https://code.visualstudio.com/), for the debugging step
+
+## Generate `generated.mid`
+
+    docker compose up app
+
+This installs dependencies, runs `performance.ts`, and writes
+`generated.mid` back into this folder.
+
+### Writing the output somewhere else
+
+By default the MIDI file is written back into this folder. To send it
+somewhere else instead, set `OUTPUT_DIR` to the host folder you want it in
+before running the command:
+
+    OUTPUT_DIR=/mnt/c/Users/you/Music docker compose up app
+
+On Windows PowerShell:
+
+    $env:OUTPUT_DIR="C:\Users\you\Music"; docker compose up app
+
+To make this permanent rather than setting it every time, create a `.env`
+file next to `docker-compose.yml`:
+
+    OUTPUT_DIR=/mnt/c/Users/you/Music
+
+Docker Compose loads that automatically on every run.
+
+## Step through the code
+
+    docker compose run --rm --service-ports debug
+
+This starts the same run, but pauses on the first line and waits for a
+debugger to attach on port 9229. Open this folder in VS Code and press
+Run and Debug - an "Attach to Docker" configuration is already set up in
+`.vscode/launch.json`. Breakpoints work in `performance.ts` and in any
+installed package under `node_modules`, since the code runs as real
+TypeScript via `tsx`, not the browser sandbox.

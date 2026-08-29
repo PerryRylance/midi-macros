@@ -3,6 +3,11 @@ import { test, expect } from "@playwright/test";
 import JSZip from "jszip";
 import { OPERATION_TIMEOUT, waitUntilContainerSettled } from "./support/waits";
 
+// The Docker debugging setup (see website/src/stubs) is bundled into every
+// download regardless of whether a MIDI could be rendered - see
+// serialization.ts's DOCKER_EXPORT_FILES.
+const DOCKER_EXPORT_FILE_NAMES = [".vscode/", ".vscode/launch.json", "Dockerfile", "README.md", "docker-compose.yml", "run.ts"];
+
 async function openPackagesTab(page: import("@playwright/test").Page): Promise<void> {
     await page.locator("#tab-button-packages").click();
 }
@@ -59,9 +64,13 @@ test("downloads a zip of the performance, package.json, package-lock.json and a 
     const archivePath = await download.path();
     const zip = await JSZip.loadAsync(readFileSync(archivePath!));
 
-    expect(Object.keys(zip.files).sort()).toEqual(["generated.mid", "package-lock.json", "package.json", "performance.ts"]);
+    expect(Object.keys(zip.files).sort()).toEqual(
+        ["generated.mid", "package-lock.json", "package.json", "performance.ts", ...DOCKER_EXPORT_FILE_NAMES].sort()
+    );
     expect(await zip.file("performance.ts")!.async("string")).toContain("NoteOnEvent");
     expect(JSON.parse(await zip.file("package.json")!.async("string")).name).toBe("sandbox");
+    expect(await zip.file("Dockerfile")!.async("string")).toContain("node:22-slim");
+    expect(await zip.file(".vscode/launch.json")!.async("string")).toContain("Attach to Docker");
 
     const midiBytes = await zip.file("generated.mid")!.async("nodebuffer");
     expect(midiBytes.subarray(0, 4).toString("ascii")).toBe("MThd");
@@ -114,7 +123,9 @@ test("still downloads a zip, without generated.mid, when the performance can't b
     const archivePath = await download.path();
     const zip = await JSZip.loadAsync(readFileSync(archivePath!));
 
-    expect(Object.keys(zip.files).sort()).toEqual(["package-lock.json", "package.json", "performance.ts"]);
+    expect(Object.keys(zip.files).sort()).toEqual(
+        ["package-lock.json", "package.json", "performance.ts", ...DOCKER_EXPORT_FILE_NAMES].sort()
+    );
 });
 
 test("disables the download button while npm installs a package, and re-enables it once done", async ({ page }) => {

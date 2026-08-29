@@ -14,8 +14,19 @@ let tsServerProcess: Promise<WebContainerProcess> | undefined;
 // with, and pollute, the user-facing package install/remove output.
 export function startTsServer(container: WebContainer): Promise<WebContainerProcess> {
     if (!tsServerProcess) {
-        tsServerProcess = installToolingDependencies(container)
-            .then(() => container.spawn("node", ["node_modules/typescript/lib/tsserver.js"]));
+        tsServerProcess = installToolingDependencies(container).then(() =>
+            container.spawn("node", [
+                "node_modules/typescript/lib/tsserver.js",
+                // Automatic Type Acquisition forks a second node process to
+                // run typingsInstaller.js and shells out to npm to fetch
+                // @types packages - the fork fails inside the WebContainer
+                // sandbox ("Cannot find module .../typingsInstaller.js"),
+                // which otherwise kills the server on startup. We don't need
+                // it anyway: the only packages users install here either
+                // ship their own types or don't have any.
+                "--disableAutomaticTypingAcquisition"
+            ])
+        );
     }
 
     return tsServerProcess;

@@ -19,6 +19,27 @@ export function createDefaultPackageJson(): string {
     return JSON.stringify({ name: "sandbox", private: true, dependencies }, null, 4);
 }
 
+// Without this, tsserver.js (started by startTsServer) falls back to an
+// inferred project with TS's default target (ES3), whose lib doesn't
+// declare ES2019+ array methods like flatMap - surfacing as bogus red
+// squiggles in the editor for perfectly valid code. Mirrors the
+// compilerOptions performanceEvaluator.ts's own ts.createProgram call uses,
+// so the live diagnostics agree with what actually gets type-checked.
+export function createDefaultTsConfig(): string {
+    return JSON.stringify(
+        {
+            compilerOptions: {
+                target: "ES2020",
+                module: "CommonJS",
+                esModuleInterop: true,
+                skipLibCheck: true
+            }
+        },
+        null,
+        4
+    );
+}
+
 export function bootWebContainer(onOutput?: (chunk: string) => void): Promise<WebContainer> {
     if (!instance) {
         instance = WebContainer.boot({ workdirName: "workspace" }).then(async container => {
@@ -29,6 +50,11 @@ export function bootWebContainer(onOutput?: (chunk: string) => void): Promise<We
                 "package.json": {
                     file: {
                         contents: createDefaultPackageJson()
+                    }
+                },
+                "tsconfig.json": {
+                    file: {
+                        contents: createDefaultTsConfig()
                     }
                 }
             });
