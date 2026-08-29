@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["tests", "e2e"]
+  "include": ["tests", "e2e", "src/vite-env.d.ts"]
 }
