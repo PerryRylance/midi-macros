@@ -24,12 +24,21 @@ import {
 } from "../tsServerCompletions";
 import { toSignatureHelp, type TsServerSignatureHelpItems } from "../tsServerSignatureHelp";
 
-// The worker scripts actually live at "dist/workers/*.js" (see
-// public/dist/workers) - passing just "dist" here builds a URL one directory
-// short of the real file, which 404s and (since Vite's dev server falls back
-// to index.html for unmatched routes) gets executed as JS, throwing
-// "Unexpected token '<'" from the leading "<!doctype html>".
-buildWorkerDefinition("dist/workers", new URL("", window.location.href).href, false);
+// The worker scripts live under public/workers - NOT public/dist/workers,
+// even though the production build ends up serving them at /dist/workers/.
+// Vite's dev server serves public/* directly at the site root (public/workers
+// -> /workers), but `vite build` *copies* public/* into dist/, so the same
+// files there land at dist/workers - the "dist" prefix comes from the build
+// output structure, not from anything under public/. A public/dist/workers
+// directory looks right in dev (served at /dist/workers, matching what's
+// requested here) but is wrong in production, where it gets copied into
+// dist/dist/workers - one directory deeper than requested, 404ing and (since
+// Cloudflare Pages' SPA fallback serves index.html for unmatched routes) it
+// gets executed as JS, throwing "Unexpected token '<'" from the leading
+// "<!doctype html>". Passing "workers" here is correct in both: dev serves
+// public/workers at /workers, and the build copies it to dist/workers, which
+// is /workers again once dist/ is deployed as the site root.
+buildWorkerDefinition("workers", new URL("", window.location.href).href, false);
 
 const SYNTAX_MARKER_OWNER = "tsserver-syntax";
 const SEMANTIC_MARKER_OWNER = "tsserver-semantic";
