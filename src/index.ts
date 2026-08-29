@@ -1,8 +1,8 @@
 export * from "./types";
-export * from "./interpolators/lerp";
-export * from "./macros/repeat";
-export * from "./macros/partition";
-export * from "./macros/interpolate";
-export * from "./macros/ramp";
-export * from "./macros/cycle";
-export * from "./macros/parallel";
+export { default as lerp } from "./interpolators/lerp";
+export { default as repeat } from "./macros/repeat";
+export { default as partition } from "./macros/partition";
+export { default as interpolate } from "./macros/interpolate";
+export { default as ramp } from "./macros/ramp";
+export { default as cycle } from "./macros/cycle";
+export { default as parallel } from "./macros/parallel";
