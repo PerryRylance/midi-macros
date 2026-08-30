@@ -285,6 +285,12 @@ describe("createDefaultPackageJson", () => {
             expect(manifest.dependencies).toHaveProperty(name);
         }
     });
+
+    it("requires at least 0.0.1 of @perry-rylance/midi-macros, for compatibility reasons", () => {
+        const manifest = JSON.parse(createDefaultPackageJson());
+
+        expect(manifest.dependencies["@perry-rylance/midi-macros"]).toBe(">=0.0.1");
+    });
 });
 
 describe("loadUploadedProject", () => {

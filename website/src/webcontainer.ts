@@ -9,13 +9,23 @@ export function isDefaultDependency(name: string): boolean {
     return (DEFAULT_DEPENDENCIES as readonly string[]).includes(name);
 }
 
+// Version range declared in the default package.json for each of
+// DEFAULT_DEPENDENCIES - "*" unless a package needs a stronger floor.
+// @perry-rylance/midi-macros requires >=0.0.1 for compatibility reasons.
+const DEFAULT_DEPENDENCY_VERSIONS: Record<(typeof DEFAULT_DEPENDENCIES)[number], string> = {
+    "@perry-rylance/midi": "*",
+    "@perry-rylance/midi-macros": ">=0.0.1"
+};
+
 // Declares DEFAULT_DEPENDENCIES as real package.json dependencies, rather
 // than installing them via explicit `npm install <name>` args - this is what
 // lets bootWebContainer's initial install and loadUploadedProject's (below)
 // share the same "npm install/ci against whatever package.json says" step,
 // instead of the boot path needing its own special-cased package list.
 export function createDefaultPackageJson(): string {
-    const dependencies = Object.fromEntries(DEFAULT_DEPENDENCIES.map(name => [name, "*"]));
+    const dependencies = Object.fromEntries(
+        DEFAULT_DEPENDENCIES.map(name => [name, DEFAULT_DEPENDENCY_VERSIONS[name]])
+    );
 
     return JSON.stringify({ name: "sandbox", private: true, dependencies }, null, 4);
 }
