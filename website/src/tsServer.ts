@@ -32,6 +32,10 @@ export function startTsServer(container: WebContainer): Promise<WebContainerProc
     return tsServerProcess;
 }
 
-async function installToolingDependencies(container: WebContainer): Promise<void> {
+// Exported so "New" (mm-serialization-controls.ts) can reinstall these after
+// resetToDefaultProject wipes package.json - startTsServer itself only ever
+// runs this once per page load (memoized via tsServerProcess), so it won't
+// notice or repair node_modules/package.json losing these on its own.
+export async function installToolingDependencies(container: WebContainer): Promise<void> {
     await runNpmCommand(container, ["install", "--save-dev", ...TOOLING_DEPENDENCIES]);
 }

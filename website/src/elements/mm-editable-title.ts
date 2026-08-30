@@ -55,6 +55,15 @@ export class MmEditableTitleElement extends HTMLElement {
         this.#commitTitle(value);
     }
 
+    // Used by "New" - restores the fallback heading without writing it back
+    // to storage, same as connectedCallback's initial (no stored title) case,
+    // so a fresh visitor and a post-"New" title behave identically.
+    resetTitle(): void {
+        this.#heading.textContent = DEFAULT_TITLE;
+        document.title = DEFAULT_TITLE;
+        localStorage.removeItem(TITLE_STORAGE_KEY);
+    }
+
     // Falls back to DEFAULT_TITLE for a blank value, then applies - shared by
     // setTitle() and blurring an emptied input. Deliberately not used by the
     // live "input" listener below, which applies the raw value as-is so the

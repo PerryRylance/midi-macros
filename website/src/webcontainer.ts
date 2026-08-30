@@ -1,4 +1,5 @@
 import { WebContainer } from "@webcontainer/api";
+import { PERFORMANCE_FILE_NAME } from "./performanceEvaluator";
 
 let instance: Promise<WebContainer> | null = null;
 
@@ -197,6 +198,30 @@ export async function loadUploadedProject(
     });
 
     return runNpmCommand(container, ["ci"], onOutput);
+}
+
+// Backs the "New" button - discards performance.ts and the current
+// package.json/package-lock.json in favour of a fresh default project, the
+// same shape bootWebContainer's own initial install produces. Deliberately
+// doesn't touch node_modules directly: `npm install` against the fresh
+// package.json already reconciles it (installing DEFAULT_DEPENDENCIES,
+// removing anything else the previous project had installed), the same way
+// it already does whenever a dependency is removed via uninstallPackage.
+export async function resetToDefaultProject(
+    container: WebContainer,
+    onOutput?: (chunk: string) => void
+): Promise<InstallResult> {
+    await Promise.all([
+        container.fs.rm(PERFORMANCE_FILE_NAME, { force: true }),
+        container.fs.rm("package.json", { force: true }),
+        container.fs.rm("package-lock.json", { force: true })
+    ]);
+
+    await container.mount({
+        "package.json": { file: { contents: createDefaultPackageJson() } }
+    });
+
+    return runNpmCommand(container, ["install"], onOutput);
 }
 
 export async function installPackage(

@@ -9,6 +9,7 @@ import {
     listInstalledPackages,
     loadUploadedProject,
     onNpmBusyChange,
+    resetToDefaultProject,
     uninstallPackage
 } from "../src/webcontainer";
 
@@ -329,6 +330,53 @@ describe("loadUploadedProject", () => {
 
         expect(result.exitCode).toBe(1);
         expect(result.output).toContain("out of sync");
+    });
+});
+
+describe("resetToDefaultProject", () => {
+    it("deletes performance.ts, package.json and package-lock.json, then mounts a fresh default package.json and runs `npm install`", async () => {
+        const rm = vi.fn().mockResolvedValue(undefined);
+        const mount = vi.fn().mockResolvedValue(undefined);
+        const spawn = vi.fn().mockResolvedValue({
+            output: new ReadableStream<string>({
+                start(controller) {
+                    controller.close();
+                }
+            }),
+            exit: Promise.resolve(0)
+        });
+        const container = { fs: { rm }, mount, spawn } as any;
+
+        const result = await resetToDefaultProject(container);
+
+        expect(rm).toHaveBeenCalledWith("performance.ts", { force: true });
+        expect(rm).toHaveBeenCalledWith("package.json", { force: true });
+        expect(rm).toHaveBeenCalledWith("package-lock.json", { force: true });
+        expect(mount).toHaveBeenCalledWith({
+            "package.json": { file: { contents: createDefaultPackageJson() } }
+        });
+        expect(spawn).toHaveBeenCalledWith("npm", ["install"]);
+        expect(result.exitCode).toBe(0);
+    });
+
+    it("resolves with a non-zero exit code when npm install fails, without throwing", async () => {
+        const rm = vi.fn().mockResolvedValue(undefined);
+        const mount = vi.fn().mockResolvedValue(undefined);
+        const spawn = vi.fn().mockResolvedValue({
+            output: new ReadableStream<string>({
+                start(controller) {
+                    controller.enqueue("npm ERR! network failure");
+                    controller.close();
+                }
+            }),
+            exit: Promise.resolve(1)
+        });
+        const container = { fs: { rm }, mount, spawn } as any;
+
+        const result = await resetToDefaultProject(container);
+
+        expect(result.exitCode).toBe(1);
+        expect(result.output).toContain("network failure");
     });
 });
 

@@ -1,8 +1,9 @@
-import { createElement, Download, Upload } from "lucide";
-import { bootWebContainer, loadUploadedProject, onNpmBusyChange } from "../webcontainer";
+import { createElement, Download, FilePlus, Upload } from "lucide";
+import { bootWebContainer, loadUploadedProject, onNpmBusyChange, resetToDefaultProject } from "../webcontainer";
 import { archiveFileName, buildDownloadArchive, filenameFromUrl, parseUploadArchive, titleFromArchiveFileName } from "../serialization";
 import { evaluatePerformance } from "../performanceEvaluator";
-import { startTsServer } from "../tsServer";
+import { installToolingDependencies, startTsServer } from "../tsServer";
+import { clearModified, isModified } from "../modifiedState";
 import {
     dispatchBuildOutput,
     dispatchBuildOutputClear,
@@ -13,6 +14,8 @@ import {
 import type { MmEditableTitleElement } from "./mm-editable-title";
 import type { MmEditorElement } from "./mm-editor";
 import type { MmTabsElement } from "./mm-tabs";
+
+import DEFAULT_SOURCE from "../stubs/default.performance.ts.stub?raw";
 
 const BUILD_TABS_ID = "build-tabs";
 const OUTPUT_PANEL_ID = "tab-output";
@@ -46,13 +49,16 @@ function triggerDownload(blob: Blob, fileName: string): void {
 }
 
 export class MmSerializationControlsElement extends HTMLElement {
+    #newButton: HTMLButtonElement;
     #downloadButton: HTMLButtonElement;
     #uploadButton: HTMLButtonElement;
+    #confirmNewDialog: HTMLDialogElement;
     #importDialog: HTMLDialogElement;
     #fileInput: HTMLInputElement;
     #urlInput: HTMLInputElement;
 
     #npmBusy = false;
+    #creatingNew = false;
     #downloading = false;
     #uploading = false;
     #unsubscribeNpmBusy: (() => void) | undefined;
@@ -64,6 +70,45 @@ export class MmSerializationControlsElement extends HTMLElement {
 
     constructor() {
         super();
+
+        this.#newButton = document.createElement("button");
+        this.#newButton.id = "new-button";
+        this.#newButton.type = "button";
+        this.#newButton.disabled = true;
+        this.#newButton.setAttribute("aria-label", "New");
+        this.#newButton.append(createElement(FilePlus));
+        this.#newButton.addEventListener("click", () => this.#handleNewClick());
+
+        const confirmNewMessage = document.createElement("p");
+        confirmNewMessage.textContent = "Starting a new performance will discard your current one. This can't be undone.";
+
+        const confirmNewButton = document.createElement("button");
+        confirmNewButton.id = "confirm-new-button";
+        confirmNewButton.type = "submit";
+        confirmNewButton.textContent = "Start new";
+
+        const cancelNewButton = document.createElement("button");
+        cancelNewButton.id = "cancel-new-button";
+        cancelNewButton.type = "button";
+        cancelNewButton.addEventListener("click", () => this.#confirmNewDialog.close());
+        cancelNewButton.textContent = "Cancel";
+
+        const confirmNewButtonContainer = document.createElement("div");
+        confirmNewButtonContainer.className = "button-container";
+        confirmNewButtonContainer.append(confirmNewButton, cancelNewButton);
+
+        const confirmNewForm = document.createElement("form");
+        confirmNewForm.id = "confirm-new-form";
+        confirmNewForm.append(confirmNewMessage, confirmNewButtonContainer);
+        confirmNewForm.addEventListener("submit", event => {
+            event.preventDefault();
+            this.#confirmNewDialog.close();
+            void this.#performNew();
+        });
+
+        this.#confirmNewDialog = document.createElement("dialog");
+        this.#confirmNewDialog.id = "confirm-new-dialog";
+        this.#confirmNewDialog.append(confirmNewForm);
 
         this.#downloadButton = document.createElement("button");
         this.#downloadButton.id = "download-button";
@@ -123,7 +168,7 @@ export class MmSerializationControlsElement extends HTMLElement {
         this.#importDialog.id = "import-dialog";
         this.#importDialog.append(form);
 
-        this.append(this.#downloadButton, this.#uploadButton, this.#importDialog);
+        this.append(this.#newButton, this.#confirmNewDialog, this.#downloadButton, this.#uploadButton, this.#importDialog);
     }
 
     connectedCallback(): void {
@@ -135,10 +180,60 @@ export class MmSerializationControlsElement extends HTMLElement {
     }
 
     #updateDisabled(): void {
-        const disabled = this.#npmBusy || this.#downloading || this.#uploading;
+        const disabled = this.#npmBusy || this.#creatingNew || this.#downloading || this.#uploading;
 
+        this.#newButton.disabled = disabled;
         this.#downloadButton.disabled = disabled;
         this.#uploadButton.disabled = disabled;
+    }
+
+    #handleNewClick(): void {
+        if (isModified()) {
+            this.#confirmNewDialog.showModal();
+            return;
+        }
+
+        void this.#performNew();
+    }
+
+    async #performNew(): Promise<void> {
+        const editor = document.querySelector<MmEditorElement>("#editor");
+
+        if (!editor) return;
+
+        this.#creatingNew = true;
+        this.#updateDisabled();
+        dispatchBuildOutputClear();
+        dispatchBuildOutput({ status: "info", message: "Starting a new performance..." });
+        document.querySelector<MmTabsElement>(`#${BUILD_TABS_ID}`)?.activatePanel(OUTPUT_PANEL_ID);
+
+        try {
+            const container = await bootWebContainer();
+
+            const result = await resetToDefaultProject(container, chunk => dispatchTerminalOutput(chunk));
+
+            if (result.exitCode !== 0) {
+                throw new Error(result.output.trim() || `npm install exited with code ${result.exitCode}.`);
+            }
+
+            // resetToDefaultProject's fresh package.json only declares the
+            // user-facing DEFAULT_DEPENDENCIES - restore the editor tooling
+            // (typescript, midi-to-milliseconds) it also wiped, since
+            // startTsServer won't repeat this itself (memoized to run once
+            // per page load).
+            await installToolingDependencies(container);
+
+            editor.setSource(DEFAULT_SOURCE);
+            document.querySelector<MmEditableTitleElement>("#editable-title")?.resetTitle();
+            clearModified();
+
+            dispatchBuildOutput({ status: "success", message: "Started a new performance." });
+        } catch (error) {
+            dispatchBuildOutput({ status: "error", message: toErrorMessage(error) });
+        } finally {
+            this.#creatingNew = false;
+            this.#updateDisabled();
+        }
     }
 
     async #handleDownload(): Promise<void> {
@@ -185,6 +280,7 @@ export class MmSerializationControlsElement extends HTMLElement {
             const title = document.querySelector<MmEditableTitleElement>("#editable-title")?.getTitle() ?? "";
 
             triggerDownload(archive, archiveFileName(title));
+            clearModified();
 
             dispatchBuildOutput({ status: "success", message: "Download ready." });
         } catch (error) {

@@ -2,6 +2,7 @@ import { bootWebContainer, loadUploadedProject } from "./webcontainer";
 import { buildDownloadArchive, parseUploadArchive } from "./serialization";
 import { clearArchive, hasSavedArchive, loadArchive, saveArchive } from "./persistenceStorage";
 import { dispatchBuildOutput, dispatchUploadBusy, dispatchUploadIdle, EDITOR_CHANGED_EVENT } from "./events";
+import { markModified } from "./modifiedState";
 import type { MmEditorElement } from "./elements/mm-editor";
 
 // How long the editor has to sit idle before the current performance is
@@ -98,6 +99,12 @@ function initAutosave(): void {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     document.addEventListener(EDITOR_CHANGED_EVENT, () => {
+        // Covers every case "New" should warn about before discarding: the
+        // user typing, an uploaded performance, and a restored-from-storage
+        // one, since all three fire this same event via setSource()/typing -
+        // see modifiedState.ts.
+        markModified();
+
         if (timer !== undefined) clearTimeout(timer);
 
         timer = setTimeout(() => void saveCurrentPerformance(editor), SAVE_DEBOUNCE_MS);
