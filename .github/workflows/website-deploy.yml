@@ -43,4 +43,4 @@ jobs:
           cloudflare-project-name: ${{ vars.CLOUDFLARE_PROJECT_NAME }}
           directory: website/dist
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          github-environment: ${{ (github.ref == 'refs/heads/production' && 'production') || 'dev' }}
+          github-environment: ${{ (github.ref == 'refs/heads/website' && 'production') || 'dev' }}
