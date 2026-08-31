@@ -6,3 +6,4 @@ export { default as interpolate } from "./macros/interpolate";
 export { default as ramp } from "./macros/ramp";
 export { default as cycle } from "./macros/cycle";
 export { default as parallel } from "./macros/parallel";
+export { default as channel } from "./macros/channel";
