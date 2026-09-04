@@ -13,7 +13,7 @@ Takes a count and an array of events or callback that generates events, returns 
 
 The count is interpreted in musical terms. Zero will return no events, one will return the same input, two will return the input twice.
 
-### `truncate`
+### `fit`
 Takes a duration in MIDI ticks, an array of events or a callback that generates events, and a callback that receives the remainder amount in ticks.
 
 What to do with the remainder is left up to the caller, you could for example use an aftertouch event or sysex event to pad out the remaining time.

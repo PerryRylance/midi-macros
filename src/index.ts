@@ -1,7 +1,7 @@
 export * from "./types";
 export { default as lerp } from "./interpolators/lerp";
 export { default as repeat } from "./macros/repeat";
-export { default as truncate } from "./macros/truncate";
+export { default as fit } from "./macros/fit";
 export { default as partition } from "./macros/partition";
 export { default as interpolate } from "./macros/interpolate";
 export { default as ramp } from "./macros/ramp";
