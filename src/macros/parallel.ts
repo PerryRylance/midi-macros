@@ -15,5 +15,8 @@ export default function parallel(lines: Event[][]): Event[]
     if(tracks.length !== 1)
         throw new Error();
 
-    return tracks[0]!.events;
+    // NB: Track.events is a CallableArray (see @perry-rylance/midi), not a plain array - it must
+    // be spread into a real array here, otherwise callers relying on EventsOrCallable's
+    // typeof-based branching (e.g. channel(), repeat()) misidentify it as a callback.
+    return [...tracks[0]!.events];
 }

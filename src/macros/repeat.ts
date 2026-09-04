@@ -1,5 +1,5 @@
 import type { Event } from "@perry-rylance/midi";
-import type { EventsOrCallable } from "../types";
+import { isCallable, type EventsOrCallable } from "../types";
 
 /**
  * Repeats the input count number of times
@@ -16,7 +16,7 @@ const repeat = (count: number, input: EventsOrCallable<[i: number]>): Event[] =>
 
     for(let i = 0; i < count; i++)
     {
-        if(typeof input === "function")
+        if(isCallable(input))
             result.push(...input(i));
         else
             result.push(...input);
