@@ -13,6 +13,13 @@ Takes a count and an array of events or callback that generates events, returns 
 
 The count is interpreted in musical terms. Zero will return no events, one will return the same input, two will return the input twice.
 
+### `truncate`
+Takes a duration in MIDI ticks, an array of events or a callback that generates events, and a callback that receives the remainder.
+
+Events are kept, as the same instances, for as long as their cumulative delta does not exceed the duration. The first event that would cross the duration boundary, and everything after it, is dropped entirely - MIDI delta is the time *before* an event fires, so shortening a kept event's delta to make it fit would change when it actually sounds, rather than just cutting the timeline.
+
+The remainder callback is called once with the ticks left over (duration minus the summed delta of the kept events), and is expected to return one or more events to do something with that gap, for example a SysEx event used as a delay.
+
 ### `parallel`
 Takes a two dimensional array of events, merges them together respecting the event deltas.
 
